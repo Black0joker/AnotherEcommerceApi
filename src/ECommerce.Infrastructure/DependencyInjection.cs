@@ -1,5 +1,6 @@
 using ECommerce.Application.Abstractions;
 using ECommerce.Domain.Entities;
+using ECommerce.Infrastructure.Caching;
 using ECommerce.Infrastructure.Identity;
 using ECommerce.Infrastructure.Persistence;
 using ECommerce.Infrastructure.Persistence.Context;
@@ -55,10 +56,34 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-        // Register repositories
+        // Register Redis caching
+        var redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = redisConnectionString;
+            options.InstanceName = "ECommerce:";
+        });
+
+        // Register cache service
+        services.AddSingleton<ICacheService, RedisCacheService>();
+
+        // Register repositories with caching decorators
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IProductRepository, ProductRepository>();
-        services.AddScoped<ICategoryRepository, CategoryRepository>();
+
+        // Product repository with cache-aside pattern
+        services.AddScoped<ProductRepository>();
+        services.AddScoped<IProductRepository>(sp =>
+            new CachedProductRepository(
+                sp.GetRequiredService<ProductRepository>(),
+                sp.GetRequiredService<ICacheService>()));
+
+        // Category repository with cache-aside pattern
+        services.AddScoped<CategoryRepository>();
+        services.AddScoped<ICategoryRepository>(sp =>
+            new CachedCategoryRepository(
+                sp.GetRequiredService<CategoryRepository>(),
+                sp.GetRequiredService<ICacheService>()));
+
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;
