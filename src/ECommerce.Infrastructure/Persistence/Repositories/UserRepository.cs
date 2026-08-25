@@ -46,9 +46,59 @@ public class UserRepository : IUserRepository
         await _userManager.AddToRoleAsync(user, role);
     }
 
+    public async Task RemoveFromRoleAsync(ApplicationUser user, string role, CancellationToken cancellationToken = default)
+    {
+        await _userManager.RemoveFromRoleAsync(user, role);
+    }
+
     public async Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default)
     {
         return await _context.Users.AnyAsync(u => u.Email == email, cancellationToken);
+    }
+
+    public async Task<(IReadOnlyList<ApplicationUser> Users, int TotalCount)> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? search,
+        bool? isActive,
+        string? role,
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<ApplicationUser> query = _context.Users.AsQueryable();
+
+        // When a role filter is supplied, resolve the member user IDs via the
+        // UserManager first (Identity tables are not exposed as DbSets on this context).
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            var roleUsers = await _userManager.GetUsersInRoleAsync(role);
+            var roleUserIds = roleUsers.Select(u => u.Id).ToHashSet();
+            query = query.Where(u => roleUserIds.Contains(u.Id));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.ToLower();
+            query = query.Where(u =>
+                (u.Email != null && u.Email.ToLower().Contains(searchLower)) ||
+                (u.UserName != null && u.UserName.ToLower().Contains(searchLower)) ||
+                (u.FirstName != null && u.FirstName.ToLower().Contains(searchLower)) ||
+                (u.LastName != null && u.LastName.ToLower().Contains(searchLower)));
+        }
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(u => u.IsActive == isActive.Value);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var users = await query
+            .OrderByDescending(u => u.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (users, totalCount);
     }
 
     public Task AddAsync(ApplicationUser entity, CancellationToken cancellationToken = default)
