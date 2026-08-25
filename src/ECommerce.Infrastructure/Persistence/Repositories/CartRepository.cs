@@ -37,6 +37,14 @@ public class CartRepository : ICartRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<Cart?> GetWithItemsByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Carts
+            .Include(c => c.Items)
+                .ThenInclude(i => i.Product)
+            .FirstOrDefaultAsync(c => c.UserId == userId, cancellationToken);
+    }
+
     public async Task<bool> ExistsByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return await _context.Carts.AnyAsync(c => c.UserId == userId, cancellationToken);
