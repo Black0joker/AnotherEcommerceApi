@@ -1,6 +1,7 @@
 using ECommerce.Application.Abstractions;
 using ECommerce.Application.Common;
 using ECommerce.Application.Jobs;
+using ECommerce.Application.Pricing;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Enums;
 
@@ -12,26 +13,32 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
     private readonly IProductRepository _productRepository;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IOrderRepository _orderRepository;
+    private readonly IDiscountRepository _discountRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IBackgroundJobQueue _jobQueue;
+    private readonly IDiscountCalculator _discountCalculator;
 
     public CheckoutCommandHandler(
         ICartRepository cartRepository,
         IProductRepository productRepository,
         IInventoryRepository inventoryRepository,
         IOrderRepository orderRepository,
+        IDiscountRepository discountRepository,
         ICurrentUserService currentUserService,
         IUnitOfWork unitOfWork,
-        IBackgroundJobQueue jobQueue)
+        IBackgroundJobQueue jobQueue,
+        IDiscountCalculator discountCalculator)
     {
         _cartRepository = cartRepository;
         _productRepository = productRepository;
         _inventoryRepository = inventoryRepository;
         _orderRepository = orderRepository;
+        _discountRepository = discountRepository;
         _currentUserService = currentUserService;
         _unitOfWork = unitOfWork;
         _jobQueue = jobQueue;
+        _discountCalculator = discountCalculator;
     }
 
     public async Task<Result<CheckoutResultDto>> Handle(CheckoutCommand request, CancellationToken cancellationToken)
@@ -77,7 +84,7 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
 
         // 4. Load authoritative product data and validate prices
         var orderItems = new List<OrderItem>();
-        decimal subtotal = 0;
+        var pricingLines = new List<PricingLine>();
 
         foreach (var cartItem in cart.Items)
         {
@@ -115,8 +122,26 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
             };
 
             orderItems.Add(orderItem);
-            subtotal += lineTotal;
+
+            // Capture category IDs for discount product/category restrictions.
+            var categoryIds = product.ProductCategories.Select(pc => pc.CategoryId).ToList();
+            pricingLines.Add(new PricingLine(product.Id, categoryIds, unitPrice, cartItem.Quantity));
         }
+
+        // 4b. Calculate authoritative totals server-side (never trust client totals).
+        var pricingResult = await _discountCalculator.CalculateAsync(
+            pricingLines,
+            request.DiscountCode,
+            taxAmount: 0m,
+            shippingAmount: 0m,
+            cancellationToken);
+
+        if (pricingResult.IsFailure)
+        {
+            return Result.Failure<CheckoutResultDto>(pricingResult.Error!);
+        }
+
+        var pricing = pricingResult.Value;
 
         // 5. Reserve inventory (atomic within transaction)
         foreach (var cartItem in cart.Items)
@@ -150,11 +175,11 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
             UserId = userId.Value,
             OrderNumber = orderNumber,
             Status = OrderStatus.Pending,
-            Subtotal = subtotal,
-            DiscountAmount = 0,
-            TaxAmount = 0,
-            ShippingAmount = 0,
-            GrandTotal = subtotal,
+            Subtotal = pricing.Subtotal,
+            DiscountAmount = pricing.DiscountAmount,
+            TaxAmount = pricing.TaxAmount,
+            ShippingAmount = pricing.ShippingAmount,
+            GrandTotal = pricing.GrandTotal,
             IdempotencyKey = request.IdempotencyKey,
             Items = orderItems,
             ShippingAddress = new OrderAddress
@@ -172,6 +197,17 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
         };
 
         await _orderRepository.AddAsync(order, cancellationToken);
+
+        // 6b. Record discount usage (atomic within the same transaction).
+        if (!string.IsNullOrWhiteSpace(pricing.AppliedDiscountCode))
+        {
+            var appliedDiscount = await _discountRepository.GetByCodeAsync(pricing.AppliedDiscountCode, cancellationToken);
+            if (appliedDiscount is not null)
+            {
+                appliedDiscount.IncrementUsage();
+                _discountRepository.Update(appliedDiscount);
+            }
+        }
 
         // 7. Clear cart
         cart.Items.Clear();

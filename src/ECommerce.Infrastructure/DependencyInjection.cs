@@ -95,6 +95,7 @@ public static class DependencyInjection
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IProductImageRepository, ProductImageRepository>();
+        services.AddScoped<IDiscountRepository, DiscountRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         // Register file storage

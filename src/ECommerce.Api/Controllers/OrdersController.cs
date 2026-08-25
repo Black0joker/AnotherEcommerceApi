@@ -79,7 +79,7 @@ public class OrdersController : ControllerBase
             request.ShippingAddress.Country,
             request.ShippingAddress.PhoneNumber);
 
-        var command = new CheckoutCommand(idempotencyKey, shippingAddress);
+        var command = new CheckoutCommand(idempotencyKey, shippingAddress, request.DiscountCode);
         var result = await _mediator.Send(command);
 
         if (result.IsFailure)
@@ -186,7 +186,7 @@ public class AdminOrdersController : ControllerBase
     }
 }
 
-public record CheckoutRequest(CheckoutShippingAddress ShippingAddress);
+public record CheckoutRequest(CheckoutShippingAddress ShippingAddress, string? DiscountCode = null);
 
 public record CheckoutShippingAddress(
     string FirstName,

@@ -1,4 +1,5 @@
 using ECommerce.Application.Behaviors;
+using ECommerce.Application.Pricing;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,6 +21,9 @@ public static class DependencyInjection
 
         // Register FluentValidation validators from the Application assembly
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
+
+        // Register the pricing/discount calculator (authoritative server-side totals)
+        services.AddScoped<IDiscountCalculator, DiscountCalculator>();
 
         return services;
     }

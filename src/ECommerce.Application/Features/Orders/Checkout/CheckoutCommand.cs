@@ -4,7 +4,8 @@ namespace ECommerce.Application.Features.Orders.Checkout;
 
 public record CheckoutCommand(
     string? IdempotencyKey,
-    ShippingAddressDto ShippingAddress
+    ShippingAddressDto ShippingAddress,
+    string? DiscountCode = null
 ) : ICommand<CheckoutResultDto>;
 
 public record ShippingAddressDto(
