@@ -53,6 +53,7 @@ public class AddCartItemCommandHandler : ICommandHandler<AddCartItemCommand, Car
 
         // Get or create cart
         var cart = await _cartRepository.GetByUserIdAsync(userId.Value, cancellationToken);
+        var isNewCart = false;
 
         if (cart is null)
         {
@@ -62,6 +63,7 @@ public class AddCartItemCommandHandler : ICommandHandler<AddCartItemCommand, Car
                 Items = new List<Domain.Entities.CartItem>()
             };
             await _cartRepository.AddAsync(cart, cancellationToken);
+            isNewCart = true;
         }
 
         // Check if item already exists in cart
@@ -91,7 +93,13 @@ public class AddCartItemCommandHandler : ICommandHandler<AddCartItemCommand, Car
             });
         }
 
-        _cartRepository.Update(cart);
+        // A brand-new cart is already tracked as Added; calling Update on it
+        // would flip it to Modified and fail persistence.
+        if (!isNewCart)
+        {
+            _cartRepository.Update(cart);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Return updated cart

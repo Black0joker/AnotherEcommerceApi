@@ -35,8 +35,9 @@ public class GetOrderByIdQueryHandler : IQueryHandler<GetOrderByIdQuery, OrderDe
                 $"Order with ID '{request.OrderId}' was not found."));
         }
 
-        // IDOR protection: customers can only access their own orders
-        if (order.UserId != userId.Value)
+        // IDOR protection: customers can only access their own orders;
+        // admins may view any order (used by the admin order endpoints).
+        if (order.UserId != userId.Value && !_currentUserService.IsInRole("Admin"))
         {
             return Result.Failure<OrderDetailDto>(Error.NotFound(
                 "Order.NotFound",

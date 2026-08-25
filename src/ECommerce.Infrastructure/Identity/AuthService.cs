@@ -1,6 +1,8 @@
 using ECommerce.Application.Abstractions;
 using ECommerce.Domain.Entities;
+using ECommerce.Infrastructure.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace ECommerce.Infrastructure.Identity;
@@ -10,15 +12,18 @@ public class AuthService : IAuthService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ITokenService _tokenService;
     private readonly JwtSettings _jwtSettings;
+    private readonly ApplicationDbContext _dbContext;
 
     public AuthService(
         UserManager<ApplicationUser> userManager,
         ITokenService tokenService,
-        IOptions<JwtSettings> jwtSettings)
+        IOptions<JwtSettings> jwtSettings,
+        ApplicationDbContext dbContext)
     {
         _userManager = userManager;
         _tokenService = tokenService;
         _jwtSettings = jwtSettings.Value;
+        _dbContext = dbContext;
     }
 
     public async Task<AuthResult> RegisterAsync(string email, string password, string firstName, string lastName)
@@ -102,9 +107,11 @@ public class AuthService : IAuthService
             return new AuthResult(false, Error: "User not found or deactivated.");
         }
 
-        // Check if refresh token exists in the user's tokens
-        var existingToken = user.RefreshTokens
-            .FirstOrDefault(rt => rt.Token == refreshToken && rt.RevokedAt == null);
+        // Check if refresh token exists and belongs to this user.
+        var existingToken = await _dbContext.RefreshTokens
+            .FirstOrDefaultAsync(rt => rt.UserId == user.Id
+                                        && rt.Token == refreshToken
+                                        && rt.RevokedAt == null);
 
         if (existingToken is null)
         {
@@ -118,17 +125,25 @@ public class AuthService : IAuthService
 
         // Rotate: revoke old token, issue new one
         existingToken.RevokedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync();
 
         return await GenerateTokensAsync(user);
     }
 
     public async Task<bool> RevokeTokenAsync(string refreshToken)
     {
-        // Find the user who owns this refresh token
-        // In a real implementation, you'd query by token
-        // For now, we'll need to search through users
-        // This is a simplified approach - in production, you'd have a dedicated token store
-        return await Task.FromResult(true);
+        var token = await _dbContext.RefreshTokens
+            .FirstOrDefaultAsync(rt => rt.Token == refreshToken && rt.RevokedAt == null);
+
+        if (token is null)
+        {
+            return false;
+        }
+
+        token.RevokedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync();
+
+        return true;
     }
 
     private async Task<AuthResult> GenerateTokensAsync(ApplicationUser user)
@@ -138,8 +153,8 @@ public class AuthService : IAuthService
         var refreshToken = _tokenService.GenerateRefreshToken();
         var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes);
 
-        // Store refresh token
-        user.RefreshTokens.Add(new RefreshToken
+        // Persist the refresh token directly so it survives across requests.
+        _dbContext.RefreshTokens.Add(new RefreshToken
         {
             Token = refreshToken,
             UserId = user.Id,
@@ -147,7 +162,7 @@ public class AuthService : IAuthService
             CreatedAt = DateTime.UtcNow
         });
 
-        await _userManager.UpdateAsync(user);
+        await _dbContext.SaveChangesAsync();
 
         return new AuthResult(true, accessToken, refreshToken, expiresAt);
     }

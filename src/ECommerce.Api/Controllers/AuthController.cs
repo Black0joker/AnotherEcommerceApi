@@ -7,6 +7,7 @@ using ECommerce.Application.Features.Auth.Register;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ECommerce.Api.Controllers;
 
@@ -25,6 +26,7 @@ public class AuthController : ControllerBase
     /// Register a new user account.
     /// </summary>
     [HttpPost("register")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Register([FromBody] RegisterCommand command)
     {
         var result = await _mediator.Send(command);
@@ -42,6 +44,7 @@ public class AuthController : ControllerBase
     /// Login with email and password.
     /// </summary>
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginCommand command)
     {
         var result = await _mediator.Send(command);
@@ -59,6 +62,7 @@ public class AuthController : ControllerBase
     /// Refresh access token using refresh token.
     /// </summary>
     [HttpPost("refresh")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenCommand command)
     {
         var result = await _mediator.Send(command);

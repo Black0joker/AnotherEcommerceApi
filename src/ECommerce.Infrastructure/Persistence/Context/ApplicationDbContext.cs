@@ -1,16 +1,18 @@
 using ECommerce.Domain.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.Infrastructure.Persistence.Context;
 
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
     {
     }
 
-    public DbSet<ApplicationUser> Users => Set<ApplicationUser>();
+    // Users, roles, claims, logins and tokens are inherited from IdentityDbContext.
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<Product> Products => Set<Product>();

@@ -69,6 +69,16 @@ public static class DependencyInjection
             options.InstanceName = "ECommerce:";
         });
 
+        // Shared Redis connection (lazy: the app still boots when Redis is
+        // temporarily unavailable; operations degrade to cache misses).
+        services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(_ =>
+            StackExchange.Redis.ConnectionMultiplexer.Connect(
+                new StackExchange.Redis.ConfigurationOptions
+                {
+                    EndPoints = { redisConnectionString },
+                    AbortOnConnectFail = false
+                }));
+
         // Register cache service
         services.AddSingleton<ICacheService, RedisCacheService>();
 

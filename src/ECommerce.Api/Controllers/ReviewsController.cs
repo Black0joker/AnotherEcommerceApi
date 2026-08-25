@@ -5,6 +5,7 @@ using ECommerce.Application.Features.Reviews.UpdateReview;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ECommerce.Api.Controllers;
 
@@ -38,6 +39,7 @@ public class ReviewsController : ControllerBase
     /// </summary>
     [HttpPost("products/{productId:guid}/reviews")]
     [Authorize]
+    [EnableRateLimiting("reviews")]
     public async Task<IActionResult> CreateReview(Guid productId, [FromBody] CreateReviewRequest request)
     {
         var command = new CreateReviewCommand(
