@@ -1,5 +1,6 @@
 using ECommerce.Application.Abstractions;
 using ECommerce.Application.Common;
+using ECommerce.Application.Jobs;
 using ECommerce.Domain.Entities;
 using ECommerce.Domain.Enums;
 
@@ -13,6 +14,7 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
     private readonly IOrderRepository _orderRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IBackgroundJobQueue _jobQueue;
 
     public CheckoutCommandHandler(
         ICartRepository cartRepository,
@@ -20,7 +22,8 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
         IInventoryRepository inventoryRepository,
         IOrderRepository orderRepository,
         ICurrentUserService currentUserService,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IBackgroundJobQueue jobQueue)
     {
         _cartRepository = cartRepository;
         _productRepository = productRepository;
@@ -28,6 +31,7 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
         _orderRepository = orderRepository;
         _currentUserService = currentUserService;
         _unitOfWork = unitOfWork;
+        _jobQueue = jobQueue;
     }
 
     public async Task<Result<CheckoutResultDto>> Handle(CheckoutCommand request, CancellationToken cancellationToken)
@@ -175,6 +179,9 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
 
         // 8. Commit transaction (atomic - all or nothing)
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // 9. Enqueue order confirmation email (background job, does not block response)
+        await _jobQueue.EnqueueAsync(new SendOrderConfirmationJob(order.Id), cancellationToken);
 
         var resultDto = new CheckoutResultDto(
             order.Id,

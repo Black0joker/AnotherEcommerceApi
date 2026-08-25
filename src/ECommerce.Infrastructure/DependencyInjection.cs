@@ -1,10 +1,15 @@
 using ECommerce.Application.Abstractions;
+using ECommerce.Application.Jobs;
 using ECommerce.Domain.Entities;
+using ECommerce.Infrastructure.BackgroundJobs;
+using ECommerce.Infrastructure.BackgroundJobs.Cleanup;
+using ECommerce.Infrastructure.BackgroundJobs.Handlers;
 using ECommerce.Infrastructure.Caching;
 using ECommerce.Infrastructure.Identity;
 using ECommerce.Infrastructure.Persistence;
 using ECommerce.Infrastructure.Persistence.Context;
 using ECommerce.Infrastructure.Persistence.Repositories;
+using ECommerce.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -95,6 +100,22 @@ public static class DependencyInjection
         // Register file storage
         var uploadsPath = Path.Combine(AppContext.BaseDirectory, "uploads");
         services.AddSingleton<IFileStorage>(new Storage.LocalFileStorage(uploadsPath, "/uploads"));
+
+        // Register background jobs
+        services.AddSingleton<ChannelBackgroundJobQueue>();
+        services.AddSingleton<IBackgroundJobQueue>(sp => sp.GetRequiredService<ChannelBackgroundJobQueue>());
+        services.AddHostedService<BackgroundJobWorker>();
+
+        // Register job handlers
+        services.AddScoped<IJobHandler<SendEmailJob>, SendEmailJobHandler>();
+        services.AddScoped<IJobHandler<SendOrderConfirmationJob>, SendOrderConfirmationJobHandler>();
+
+        // Register periodic cleanup services
+        services.AddHostedService<CartCleanupService>();
+        services.AddHostedService<RefreshTokenCleanupService>();
+
+        // Register email service
+        services.AddSingleton<IEmailService, LoggingEmailService>();
 
         return services;
     }
