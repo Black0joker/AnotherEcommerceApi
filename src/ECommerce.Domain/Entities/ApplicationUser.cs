@@ -1,16 +1,15 @@
-using ECommerce.Domain.Common;
+using Microsoft.AspNetCore.Identity;
 
 namespace ECommerce.Domain.Entities;
 
-public class ApplicationUser : AuditableEntity
+public class ApplicationUser : IdentityUser<Guid>
 {
-    public string UserName { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
-    public string? PhoneNumber { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime? LastLoginAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
 
     // Navigation properties
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
