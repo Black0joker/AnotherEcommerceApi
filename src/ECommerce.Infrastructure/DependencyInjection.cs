@@ -84,6 +84,7 @@ public static class DependencyInjection
                 sp.GetRequiredService<CategoryRepository>(),
                 sp.GetRequiredService<ICacheService>()));
 
+        services.AddScoped<ICartRepository, CartRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;
