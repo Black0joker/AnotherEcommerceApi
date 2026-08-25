@@ -21,8 +21,12 @@ public class GetProductsQueryHandler : IQueryHandler<GetProductsQuery, PagedResu
             request.PageSize,
             request.Search,
             request.CategoryId,
+            request.MinPrice,
+            request.MaxPrice,
+            request.MinRating,
+            request.MaxRating,
+            request.IsAvailable,
             request.SortBy,
-            request.SortDirection,
             cancellationToken);
 
         var dtos = products.Select(p => new ProductListItemDto(

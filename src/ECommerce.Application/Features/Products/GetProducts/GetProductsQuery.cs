@@ -6,6 +6,10 @@ public class GetProductsQuery : PagedQuery, IQuery<PagedResult<ProductListItemDt
 {
     public string? Search { get; init; }
     public Guid? CategoryId { get; init; }
+    public decimal? MinPrice { get; init; }
+    public decimal? MaxPrice { get; init; }
+    public double? MinRating { get; init; }
+    public double? MaxRating { get; init; }
+    public bool? IsAvailable { get; init; }
     public string? SortBy { get; init; }
-    public string? SortDirection { get; init; }
 }

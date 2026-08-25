@@ -11,8 +11,17 @@ public interface IProductRepository : IRepository<Product>
         int pageSize,
         string? search,
         Guid? categoryId,
+        decimal? minPrice,
+        decimal? maxPrice,
+        double? minRating,
+        double? maxRating,
+        bool? isAvailable,
         string? sortBy,
-        string? sortDirection,
         CancellationToken cancellationToken = default);
     Task<bool> ExistsBySkuAsync(string sku, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Product>> GetRelatedProductsAsync(
+        Guid productId,
+        List<Guid> categoryIds,
+        int count,
+        CancellationToken cancellationToken = default);
 }

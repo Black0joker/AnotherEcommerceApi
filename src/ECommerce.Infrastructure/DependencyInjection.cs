@@ -1,6 +1,7 @@
 using ECommerce.Application.Abstractions;
 using ECommerce.Domain.Entities;
 using ECommerce.Infrastructure.Identity;
+using ECommerce.Infrastructure.Persistence;
 using ECommerce.Infrastructure.Persistence.Context;
 using ECommerce.Infrastructure.Persistence.Repositories;
 using Microsoft.AspNetCore.Identity;
@@ -56,6 +57,9 @@ public static class DependencyInjection
 
         // Register repositories
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;
     }
