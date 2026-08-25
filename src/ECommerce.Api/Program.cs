@@ -1,4 +1,5 @@
 using System.Text;
+using ECommerce.Api.Middleware;
 using ECommerce.Application;
 using ECommerce.Infrastructure;
 using ECommerce.Infrastructure.Identity;
@@ -47,6 +48,10 @@ builder.Services.AddHttpContextAccessor();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+// Global exception handling must run first so it can catch errors from all
+// downstream middleware and endpoints.
+app.UseGlobalExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
