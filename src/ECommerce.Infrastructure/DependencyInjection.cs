@@ -89,7 +89,12 @@ public static class DependencyInjection
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IReviewRepository, ReviewRepository>();
+        services.AddScoped<IProductImageRepository, ProductImageRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        // Register file storage
+        var uploadsPath = Path.Combine(AppContext.BaseDirectory, "uploads");
+        services.AddSingleton<IFileStorage>(new Storage.LocalFileStorage(uploadsPath, "/uploads"));
 
         return services;
     }
