@@ -5,6 +5,7 @@ namespace ECommerce.Domain.Entities;
 
 public class InventoryTransaction : BaseEntity
 {
+    public Guid InventoryItemId { get; set; }
     public Guid ProductId { get; set; }
     public InventoryTransactionType Type { get; set; }
     public int Quantity { get; set; }
@@ -12,6 +13,6 @@ public class InventoryTransaction : BaseEntity
     public string? Notes { get; set; }
 
     // Navigation
-    public Product Product { get; set; } = null!;
     public InventoryItem InventoryItem { get; set; } = null!;
+    public Product Product { get; set; } = null!;
 }

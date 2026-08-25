@@ -1,0 +1,30 @@
+using ECommerce.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace ECommerce.Infrastructure.Persistence.Configurations;
+
+public class ProductCategoryConfiguration : IEntityTypeConfiguration<ProductCategory>
+{
+    public void Configure(EntityTypeBuilder<ProductCategory> builder)
+    {
+        builder.ToTable("ProductCategories");
+
+        // Composite key
+        builder.HasKey(pc => new { pc.ProductId, pc.CategoryId });
+
+        builder.HasOne(pc => pc.Product)
+            .WithMany(p => p.ProductCategories)
+            .HasForeignKey(pc => pc.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(pc => pc.Category)
+            .WithMany(c => c.ProductCategories)
+            .HasForeignKey(pc => pc.CategoryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Indexes
+        builder.HasIndex(pc => pc.CategoryId)
+            .HasDatabaseName("IX_ProductCategories_CategoryId");
+    }
+}

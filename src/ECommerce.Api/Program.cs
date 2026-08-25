@@ -9,7 +9,7 @@ builder.Services.AddOpenApi();
 
 // Register application and infrastructure services
 builder.Services.AddApplicationServices();
-builder.Services.AddInfrastructureServices();
+builder.Services.AddInfrastructureServices(builder.Configuration);
 
 var app = builder.Build();
 

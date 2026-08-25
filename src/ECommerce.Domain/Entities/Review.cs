@@ -5,7 +5,7 @@ namespace ECommerce.Domain.Entities;
 public class Review : AuditableEntity
 {
     public Guid ProductId { get; set; }
-    public string UserId { get; set; } = string.Empty;
+    public Guid UserId { get; set; }
     public int Rating { get; set; }
     public string? Title { get; set; }
     public string? Comment { get; set; }

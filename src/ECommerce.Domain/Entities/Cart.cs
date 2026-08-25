@@ -4,7 +4,7 @@ namespace ECommerce.Domain.Entities;
 
 public class Cart : AuditableEntity
 {
-    public string UserId { get; set; } = string.Empty;
+    public Guid UserId { get; set; }
     public DateTime? ExpiresAt { get; set; }
 
     // Navigation
