@@ -82,15 +82,23 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
                 "Your cart is empty. Add items before checking out."));
         }
 
-        // 4. Load authoritative product data and validate prices
+        // 4. Batch-load authoritative product and inventory data - one query
+        // each regardless of cart size (previously 2 round-trips per cart line,
+        // with heavy Reviews/OrderItems includes on every product fetch).
+        var productIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
+
+        var productsById = (await _productRepository.GetByIdsAsync(productIds, cancellationToken))
+            .ToDictionary(p => p.Id);
+
+        var inventoryByProductId = (await _inventoryRepository.GetByProductIdsAsync(productIds, cancellationToken))
+            .ToDictionary(i => i.ProductId);
+
         var orderItems = new List<OrderItem>();
         var pricingLines = new List<PricingLine>();
 
         foreach (var cartItem in cart.Items)
         {
-            var product = await _productRepository.GetByIdAsync(cartItem.ProductId, cancellationToken);
-
-            if (product is null || !product.IsActive)
+            if (!productsById.TryGetValue(cartItem.ProductId, out var product) || !product.IsActive)
             {
                 return Result.Failure<CheckoutResultDto>(Error.Validation(
                     "Checkout.ProductUnavailable",
@@ -98,8 +106,7 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
             }
 
             // Validate inventory
-            var inventory = await _inventoryRepository.GetByProductIdAsync(product.Id, cancellationToken);
-            if (inventory is null || !inventory.HasAvailableStock(cartItem.Quantity))
+            if (!inventoryByProductId.TryGetValue(product.Id, out var inventory) || !inventory.HasAvailableStock(cartItem.Quantity))
             {
                 return Result.Failure<CheckoutResultDto>(Error.Validation(
                     "Checkout.InsufficientInventory",
@@ -143,11 +150,11 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
 
         var pricing = pricingResult.Value;
 
-        // 5. Reserve inventory (atomic within transaction)
+        // 5. Reserve inventory (atomic within transaction). Reuses the
+        // inventory items already loaded in step 4 - no extra round-trips.
         foreach (var cartItem in cart.Items)
         {
-            var inventory = await _inventoryRepository.GetByProductIdAsync(cartItem.ProductId, cancellationToken);
-            if (inventory is not null)
+            if (inventoryByProductId.TryGetValue(cartItem.ProductId, out var inventory))
             {
                 inventory.Reserve(cartItem.Quantity);
 

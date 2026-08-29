@@ -49,6 +49,22 @@ public class ProductRepository : IProductRepository
             .FirstOrDefaultAsync(p => p.SKU == sku, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Product>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        if (ids.Count == 0)
+        {
+            return Array.Empty<Product>();
+        }
+
+        // Batch load for checkout-style flows: only category links are needed
+        // (discount restrictions). Deliberately no Reviews/OrderItems/InventoryItem
+        // includes to keep the query light.
+        return await _context.Products
+            .Where(p => ids.Contains(p.Id))
+            .Include(p => p.ProductCategories)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<(IReadOnlyList<Product> Products, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,

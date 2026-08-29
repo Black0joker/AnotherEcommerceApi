@@ -26,6 +26,18 @@ public class InventoryRepository : IInventoryRepository
             .FirstOrDefaultAsync(i => i.ProductId == productId, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<InventoryItem>> GetByProductIdsAsync(IReadOnlyCollection<Guid> productIds, CancellationToken cancellationToken = default)
+    {
+        if (productIds.Count == 0)
+        {
+            return Array.Empty<InventoryItem>();
+        }
+
+        return await _context.InventoryItems
+            .Where(i => productIds.Contains(i.ProductId))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<InventoryTransaction>> GetTransactionsByProductIdAsync(Guid productId, CancellationToken cancellationToken = default)
     {
         return await _context.InventoryTransactions

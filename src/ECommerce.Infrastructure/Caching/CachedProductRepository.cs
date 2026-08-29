@@ -62,6 +62,13 @@ public class CachedProductRepository : IProductRepository
         return _inner.GetBySkuAsync(sku, cancellationToken);
     }
 
+    public Task<IReadOnlyList<Product>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        // Batch loads are used by checkout to validate fresh prices/stock;
+        // always hit the database.
+        return _inner.GetByIdsAsync(ids, cancellationToken);
+    }
+
     public Task<(IReadOnlyList<Product> Products, int TotalCount)> GetPagedAsync(
         int pageNumber, int pageSize, string? search, Guid? categoryId,
         decimal? minPrice, decimal? maxPrice, double? minRating, double? maxRating,
