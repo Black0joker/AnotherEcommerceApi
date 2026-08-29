@@ -53,7 +53,7 @@ public class UpdateCategoryCommandHandler : ICommandHandler<UpdateCategoryComman
         category.DisplayOrder = request.DisplayOrder;
         category.IsActive = request.IsActive;
 
-        _categoryRepository.Update(category);
+        await _categoryRepository.UpdateAsync(category, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

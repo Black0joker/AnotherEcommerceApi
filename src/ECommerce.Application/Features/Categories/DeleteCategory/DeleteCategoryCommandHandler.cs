@@ -32,11 +32,11 @@ public class DeleteCategoryCommandHandler : ICommandHandler<DeleteCategoryComman
         {
             // Soft delete by deactivating
             category.IsActive = false;
-            _categoryRepository.Update(category);
+            await _categoryRepository.UpdateAsync(category, cancellationToken);
         }
         else
         {
-            _categoryRepository.Delete(category);
+            await _categoryRepository.DeleteAsync(category, cancellationToken);
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);

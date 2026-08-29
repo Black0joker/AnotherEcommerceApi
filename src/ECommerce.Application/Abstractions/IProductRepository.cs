@@ -12,6 +12,13 @@ public interface IProductRepository : IRepository<Product>
     /// authoritative price/availability data without heavy navigations.
     /// </summary>
     Task<IReadOnlyList<Product>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Async write operations. Implementations that need async side effects
+    /// (e.g. cache invalidation in decorators) expose them here instead of
+    /// blocking on async I/O inside the synchronous Update/Delete members.
+    /// </summary>
+    Task UpdateAsync(Product entity, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Product entity, CancellationToken cancellationToken = default);
     Task<(IReadOnlyList<Product> Products, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,

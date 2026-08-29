@@ -58,7 +58,7 @@ public class UpdateProductCommandHandler : ICommandHandler<UpdateProductCommand>
             });
         }
 
-        _productRepository.Update(product);
+        await _productRepository.UpdateAsync(product, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

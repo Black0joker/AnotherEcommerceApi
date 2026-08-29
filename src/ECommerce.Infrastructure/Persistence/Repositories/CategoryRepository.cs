@@ -67,6 +67,20 @@ public class CategoryRepository : ICategoryRepository
         await _context.Categories.AddAsync(entity, cancellationToken);
     }
 
+    public Task UpdateAsync(Category entity, CancellationToken cancellationToken = default)
+    {
+        // EF state change is synchronous; the async surface exists so
+        // decorators can attach async side effects (cache invalidation).
+        _context.Categories.Update(entity);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Category entity, CancellationToken cancellationToken = default)
+    {
+        _context.Categories.Remove(entity);
+        return Task.CompletedTask;
+    }
+
     public void Update(Category entity)
     {
         _context.Categories.Update(entity);

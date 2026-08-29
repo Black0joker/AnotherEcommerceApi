@@ -75,23 +75,49 @@ public class CachedCategoryRepository : ICategoryRepository
         await _cache.RemoveAsync(CacheKeys.CategoryList(), cancellationToken);
     }
 
+    public Task UpdateAsync(Category entity, CancellationToken cancellationToken = default)
+    {
+        return UpdateCoreAsync(entity, cancellationToken);
+    }
+
+    public Task DeleteAsync(Category entity, CancellationToken cancellationToken = default)
+    {
+        return DeleteCoreAsync(entity, cancellationToken);
+    }
+
     public void Update(Category entity)
     {
-        _inner.Update(entity);
-
-        // Invalidate caches
-        var cacheKey = CacheKeys.CategoryById(entity.Id);
-        _cache.RemoveAsync(cacheKey).GetAwaiter().GetResult();
-        _cache.RemoveAsync(CacheKeys.CategoryList()).GetAwaiter().GetResult();
+        // IRepository<T> contract. Prefer UpdateAsync - this member schedules
+        // cache invalidation without blocking (the cache service swallows its
+        // own failures, so fire-and-forget here is safe).
+        _ = UpdateCoreAsync(entity, CancellationToken.None);
     }
 
     public void Delete(Category entity)
     {
-        _inner.Delete(entity);
+        // IRepository<T> contract. Prefer DeleteAsync - see Update for why
+        // invalidation is fire-and-forget instead of blocking.
+        _ = DeleteCoreAsync(entity, CancellationToken.None);
+    }
 
-        // Invalidate caches
-        var cacheKey = CacheKeys.CategoryById(entity.Id);
-        _cache.RemoveAsync(cacheKey).GetAwaiter().GetResult();
-        _cache.RemoveAsync(CacheKeys.CategoryList()).GetAwaiter().GetResult();
+    private async Task UpdateCoreAsync(Category entity, CancellationToken cancellationToken)
+    {
+        await _inner.UpdateAsync(entity, cancellationToken);
+        await InvalidateCategoryCacheAsync(entity, cancellationToken);
+    }
+
+    private async Task DeleteCoreAsync(Category entity, CancellationToken cancellationToken)
+    {
+        await _inner.DeleteAsync(entity, cancellationToken);
+        await InvalidateCategoryCacheAsync(entity, cancellationToken);
+    }
+
+    private async Task InvalidateCategoryCacheAsync(Category entity, CancellationToken cancellationToken)
+    {
+        // Best-effort cache invalidation. RedisCacheService never throws
+        // (it degrades gracefully when Redis is down), so a failed invalidation
+        // simply lets the entry expire via its TTL.
+        await _cache.RemoveAsync(CacheKeys.CategoryById(entity.Id), cancellationToken);
+        await _cache.RemoveAsync(CacheKeys.CategoryList(), cancellationToken);
     }
 }

@@ -65,6 +65,20 @@ public class ProductRepository : IProductRepository
             .ToListAsync(cancellationToken);
     }
 
+    public Task UpdateAsync(Product entity, CancellationToken cancellationToken = default)
+    {
+        // EF state change is synchronous; the async surface exists so
+        // decorators can attach async side effects (cache invalidation).
+        _context.Products.Update(entity);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Product entity, CancellationToken cancellationToken = default)
+    {
+        _context.Products.Remove(entity);
+        return Task.CompletedTask;
+    }
+
     public async Task<(IReadOnlyList<Product> Products, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,

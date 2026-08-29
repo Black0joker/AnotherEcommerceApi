@@ -1,7 +1,5 @@
 using ECommerce.Application.Abstractions;
 using ECommerce.Domain.Entities;
-using ECommerce.Infrastructure.Persistence.Context;
-using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.Infrastructure.Caching;
 
@@ -69,6 +67,16 @@ public class CachedProductRepository : IProductRepository
         return _inner.GetByIdsAsync(ids, cancellationToken);
     }
 
+    public Task UpdateAsync(Product entity, CancellationToken cancellationToken = default)
+    {
+        return UpdateCoreAsync(entity, cancellationToken);
+    }
+
+    public Task DeleteAsync(Product entity, CancellationToken cancellationToken = default)
+    {
+        return DeleteCoreAsync(entity, cancellationToken);
+    }
+
     public Task<(IReadOnlyList<Product> Products, int TotalCount)> GetPagedAsync(
         int pageNumber, int pageSize, string? search, Guid? categoryId,
         decimal? minPrice, decimal? maxPrice, double? minRating, double? maxRating,
@@ -111,33 +119,38 @@ public class CachedProductRepository : IProductRepository
 
     public void Update(Product entity)
     {
-        _inner.Update(entity);
-
-        // Invalidate cache for this product
-        var cacheKey = CacheKeys.ProductById(entity.Id);
-        _cache.RemoveAsync(cacheKey).GetAwaiter().GetResult();
-
-        // Invalidate by slug too
-        var slugKey = CacheKeys.ProductBySlug(entity.Slug);
-        _cache.RemoveAsync(slugKey).GetAwaiter().GetResult();
-
-        // Invalidate related products
-        var relatedKey = CacheKeys.ProductRelated(entity.Id);
-        _cache.RemoveAsync(relatedKey).GetAwaiter().GetResult();
+        // IRepository<T> contract. Prefer UpdateAsync - this member schedules
+        // cache invalidation without blocking (the cache service swallows its
+        // own failures, so fire-and-forget here is safe).
+        _ = UpdateCoreAsync(entity, CancellationToken.None);
     }
 
     public void Delete(Product entity)
     {
-        _inner.Delete(entity);
+        // IRepository<T> contract. Prefer DeleteAsync - see Update for why
+        // invalidation is fire-and-forget instead of blocking.
+        _ = DeleteCoreAsync(entity, CancellationToken.None);
+    }
 
-        // Invalidate cache for this product
-        var cacheKey = CacheKeys.ProductById(entity.Id);
-        _cache.RemoveAsync(cacheKey).GetAwaiter().GetResult();
+    private async Task UpdateCoreAsync(Product entity, CancellationToken cancellationToken)
+    {
+        await _inner.UpdateAsync(entity, cancellationToken);
+        await InvalidateProductCacheAsync(entity, cancellationToken);
+    }
 
-        var slugKey = CacheKeys.ProductBySlug(entity.Slug);
-        _cache.RemoveAsync(slugKey).GetAwaiter().GetResult();
+    private async Task DeleteCoreAsync(Product entity, CancellationToken cancellationToken)
+    {
+        await _inner.DeleteAsync(entity, cancellationToken);
+        await InvalidateProductCacheAsync(entity, cancellationToken);
+    }
 
-        var relatedKey = CacheKeys.ProductRelated(entity.Id);
-        _cache.RemoveAsync(relatedKey).GetAwaiter().GetResult();
+    private async Task InvalidateProductCacheAsync(Product entity, CancellationToken cancellationToken)
+    {
+        // Best-effort cache invalidation. RedisCacheService never throws
+        // (it degrades gracefully when Redis is down), so a failed invalidation
+        // simply lets the entry expire via its TTL.
+        await _cache.RemoveAsync(CacheKeys.ProductById(entity.Id), cancellationToken);
+        await _cache.RemoveAsync(CacheKeys.ProductBySlug(entity.Slug), cancellationToken);
+        await _cache.RemoveAsync(CacheKeys.ProductRelated(entity.Id), cancellationToken);
     }
 }

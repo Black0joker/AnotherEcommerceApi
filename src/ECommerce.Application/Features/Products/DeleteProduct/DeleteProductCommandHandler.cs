@@ -31,11 +31,11 @@ public class DeleteProductCommandHandler : ICommandHandler<DeleteProductCommand>
         if (product.OrderItems.Any())
         {
             product.IsActive = false;
-            _productRepository.Update(product);
+            await _productRepository.UpdateAsync(product, cancellationToken);
         }
         else
         {
-            _productRepository.Delete(product);
+            await _productRepository.DeleteAsync(product, cancellationToken);
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
