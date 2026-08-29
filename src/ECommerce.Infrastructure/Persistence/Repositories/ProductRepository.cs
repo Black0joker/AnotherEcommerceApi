@@ -16,12 +16,30 @@ public class ProductRepository : IProductRepository
 
     public async Task<Product?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        // Lightweight single-table load for existence checks and flows that
+        // only need scalar product fields. Navigations are intentionally not
+        // included: loading Reviews/OrderItems here used to pull the entire
+        // review and order-item history on every call (e.g. add-to-cart).
+        return await _context.Products
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+    }
+
+    public async Task<Product?> GetByIdWithDetailsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        // Read-side detail graph. OrderItems are deliberately excluded:
+        // order history is never needed by the detail endpoint and would
+        // load one row per unit ever sold for popular products.
         return await _context.Products
             .Include(p => p.ProductCategories)
             .Include(p => p.InventoryItem)
             .Include(p => p.Reviews)
-            .Include(p => p.OrderItems)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+    }
+
+    public async Task<bool> HasOrderItemsAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        return await _context.OrderItems
+            .AnyAsync(oi => oi.ProductId == productId, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Product>> GetAllAsync(CancellationToken cancellationToken = default)

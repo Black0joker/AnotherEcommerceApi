@@ -45,7 +45,7 @@ public class ValidateDiscountCodeQueryHandler : IQueryHandler<ValidateDiscountCo
         var lines = new List<PricingLine>();
         foreach (var cartItem in cart.Items)
         {
-            var product = await _productRepository.GetByIdAsync(cartItem.ProductId, cancellationToken);
+            var product = await _productRepository.GetByIdWithDetailsAsync(cartItem.ProductId, cancellationToken);
             if (product is null || !product.IsActive)
             {
                 continue;

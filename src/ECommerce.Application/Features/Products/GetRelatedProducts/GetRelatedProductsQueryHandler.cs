@@ -16,7 +16,7 @@ public class GetRelatedProductsQueryHandler : IQueryHandler<GetRelatedProductsQu
         GetRelatedProductsQuery request,
         CancellationToken cancellationToken)
     {
-        var product = await _productRepository.GetByIdAsync(request.ProductId, cancellationToken);
+        var product = await _productRepository.GetByIdWithDetailsAsync(request.ProductId, cancellationToken);
 
         if (product is null)
         {

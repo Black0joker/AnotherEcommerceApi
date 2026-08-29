@@ -30,6 +30,20 @@ public class CachedProductRepository : IProductRepository
         return _inner.GetByIdAsync(id, cancellationToken);
     }
 
+    public Task<Product?> GetByIdWithDetailsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        // Intentionally NOT cached for the same reason as GetByIdAsync: this
+        // method also feeds the write path (UpdateProduct), which must mutate
+        // fresh, change-tracked entities.
+        return _inner.GetByIdWithDetailsAsync(id, cancellationToken);
+    }
+
+    public Task<bool> HasOrderItemsAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        // Pure EXISTS probe - no cache needed.
+        return _inner.HasOrderItemsAsync(productId, cancellationToken);
+    }
+
     public async Task<Product?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
         var cacheKey = CacheKeys.ProductBySlug(slug);

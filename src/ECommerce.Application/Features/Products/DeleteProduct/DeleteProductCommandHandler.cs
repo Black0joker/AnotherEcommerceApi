@@ -27,8 +27,10 @@ public class DeleteProductCommandHandler : ICommandHandler<DeleteProductCommand>
                 $"Product with ID '{request.Id}' was not found."));
         }
 
-        // Check if product has order items - soft delete by deactivating
-        if (product.OrderItems.Any())
+        // Check if product has order items - soft delete by deactivating.
+        // EXISTS probe instead of loading the full order-item history.
+        var hasOrderItems = await _productRepository.HasOrderItemsAsync(request.Id, cancellationToken);
+        if (hasOrderItems)
         {
             product.IsActive = false;
             await _productRepository.UpdateAsync(product, cancellationToken);

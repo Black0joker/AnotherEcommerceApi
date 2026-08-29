@@ -8,17 +8,20 @@ public class UpdateCartItemCommandHandler : ICommandHandler<UpdateCartItemComman
 {
     private readonly ICartRepository _cartRepository;
     private readonly IProductRepository _productRepository;
+    private readonly IInventoryRepository _inventoryRepository;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
 
     public UpdateCartItemCommandHandler(
         ICartRepository cartRepository,
         IProductRepository productRepository,
+        IInventoryRepository inventoryRepository,
         ICurrentUserService currentUserService,
         IUnitOfWork unitOfWork)
     {
         _cartRepository = cartRepository;
         _productRepository = productRepository;
+        _inventoryRepository = inventoryRepository;
         _currentUserService = currentUserService;
         _unitOfWork = unitOfWork;
     }
@@ -65,8 +68,11 @@ public class UpdateCartItemCommandHandler : ICommandHandler<UpdateCartItemComman
                     $"Product with ID '{request.ProductId}' was not found or is not available."));
             }
 
-            // Validate inventory
-            var availableQuantity = product.InventoryItem?.AvailableQuantity ?? 0;
+            // Validate inventory with a targeted single-row lookup (ProductId is
+            // uniquely indexed) instead of loading the product with its review and
+            // order history just to read the stock level.
+            var inventory = await _inventoryRepository.GetByProductIdAsync(request.ProductId, cancellationToken);
+            var availableQuantity = inventory?.AvailableQuantity ?? 0;
             if (request.Quantity > availableQuantity)
             {
                 return Result.Failure<CartDto>(Error.Validation(
