@@ -19,22 +19,14 @@ public class CachedCategoryRepository : ICategoryRepository
         _cache = cache;
     }
 
-    public async Task<Category?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public Task<Category?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var cacheKey = CacheKeys.CategoryById(id);
-
-        var cached = await _cache.GetAsync<Category>(cacheKey, cancellationToken);
-        if (cached is not null)
-            return cached;
-
-        var category = await _inner.GetByIdAsync(id, cancellationToken);
-
-        if (category is not null)
-        {
-            await _cache.SetAsync(cacheKey, category, CacheKeys.CategoryExpiration, cancellationToken);
-        }
-
-        return category;
+        // Intentionally NOT cached. This method also feeds the write path
+        // (Update/Delete handlers), which must mutate fresh, change-tracked
+        // entities. Returning a deserialized, detached entity there would make
+        // EF attach a stale object graph and overwrite related rows on save.
+        // Read-side caching is done on the read-only active list.
+        return _inner.GetByIdAsync(id, cancellationToken);
     }
 
     public Task<IReadOnlyList<Category>> GetAllAsync(CancellationToken cancellationToken = default)

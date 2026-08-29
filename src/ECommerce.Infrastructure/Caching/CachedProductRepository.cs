@@ -21,22 +21,15 @@ public class CachedProductRepository : IProductRepository
         _cache = cache;
     }
 
-    public async Task<Product?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public Task<Product?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var cacheKey = CacheKeys.ProductById(id);
-
-        var cached = await _cache.GetAsync<Product>(cacheKey, cancellationToken);
-        if (cached is not null)
-            return cached;
-
-        var product = await _inner.GetByIdAsync(id, cancellationToken);
-
-        if (product is not null)
-        {
-            await _cache.SetAsync(cacheKey, product, CacheKeys.ProductDetailExpiration, cancellationToken);
-        }
-
-        return product;
+        // Intentionally NOT cached. This method also feeds the write path
+        // (Update/Delete handlers), which must mutate fresh, change-tracked
+        // entities. Returning a deserialized, detached entity there would make
+        // EF attach a stale object graph and overwrite related rows on save.
+        // Read-side caching is done on read-only members (slug, related) and via
+        // DTO caching for the detail endpoint.
+        return _inner.GetByIdAsync(id, cancellationToken);
     }
 
     public async Task<Product?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)

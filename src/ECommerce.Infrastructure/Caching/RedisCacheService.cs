@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using ECommerce.Application.Abstractions;
 using Microsoft.Extensions.Caching.Distributed;
 using StackExchange.Redis;
@@ -12,7 +13,11 @@ public class RedisCacheService : ICacheService
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
+        WriteIndented = false,
+        // Entity graphs contain circular navigations (Product <-> ProductCategory,
+        // Category <-> SubCategories/ParentCategory). IgnoreCycles writes already-visited
+        // back-references as null instead of throwing, so cache-aside actually populates.
+        ReferenceHandler = ReferenceHandler.IgnoreCycles
     };
 
     public RedisCacheService(IDistributedCache cache, IConnectionMultiplexer redis)
