@@ -38,11 +38,15 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(o => o.OrderNumber == orderNumber, cancellationToken);
     }
 
-    public async Task<Order?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken = default)
+    public async Task<Order?> GetByIdempotencyKeyAsync(Guid userId, string idempotencyKey, CancellationToken cancellationToken = default)
     {
+        // Scoped to the user so the query seeks on the leading columns of
+        // the filtered unique index IX_Orders_UserId_IdempotencyKey instead
+        // of scanning Orders. Scoping by user also prevents one user's retry
+        // from matching another user's order that used the same key.
         return await _context.Orders
             .Include(o => o.Items)
-            .FirstOrDefaultAsync(o => o.IdempotencyKey == idempotencyKey, cancellationToken);
+            .FirstOrDefaultAsync(o => o.UserId == userId && o.IdempotencyKey == idempotencyKey, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Order>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)

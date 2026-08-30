@@ -55,7 +55,7 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
         // 2. Check idempotency - return existing result if key was already processed
         if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
         {
-            var existingOrder = await _orderRepository.GetByIdempotencyKeyAsync(request.IdempotencyKey, cancellationToken);
+            var existingOrder = await _orderRepository.GetByIdempotencyKeyAsync(userId.Value, request.IdempotencyKey, cancellationToken);
             if (existingOrder is not null)
             {
                 var existingDto = new CheckoutResultDto(

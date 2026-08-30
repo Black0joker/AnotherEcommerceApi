@@ -24,5 +24,10 @@ public class CartConfiguration : IEntityTypeConfiguration<Cart>
         builder.HasIndex(c => c.UserId)
             .IsUnique()
             .HasDatabaseName("IX_Carts_UserId");
+
+        // Supports the hourly expired-cart cleanup range scan; without it
+        // the cleanup job scans the entire Carts table on every tick.
+        builder.HasIndex(c => c.ExpiresAt)
+            .HasDatabaseName("IX_Carts_ExpiresAt");
     }
 }
