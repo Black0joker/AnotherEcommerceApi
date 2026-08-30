@@ -4,7 +4,7 @@ using ECommerce.Application.Features.Orders.GetUserOrders;
 
 namespace ECommerce.Application.Features.Orders.Admin.GetAllOrders;
 
-public class GetAllOrdersQueryHandler : IQueryHandler<GetAllOrdersQuery, IReadOnlyList<OrderSummaryDto>>
+public class GetAllOrdersQueryHandler : IQueryHandler<GetAllOrdersQuery, PagedResult<OrderSummaryDto>>
 {
     private readonly IOrderRepository _orderRepository;
 
@@ -13,9 +13,12 @@ public class GetAllOrdersQueryHandler : IQueryHandler<GetAllOrdersQuery, IReadOn
         _orderRepository = orderRepository;
     }
 
-    public async Task<Result<IReadOnlyList<OrderSummaryDto>>> Handle(GetAllOrdersQuery request, CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<OrderSummaryDto>>> Handle(GetAllOrdersQuery request, CancellationToken cancellationToken)
     {
-        var orders = await _orderRepository.GetAllAsync(cancellationToken);
+        var (orders, totalCount) = await _orderRepository.GetAllPagedAsync(
+            request.PageNumber,
+            request.PageSize,
+            cancellationToken);
 
         var dtos = orders.Select(o => new OrderSummaryDto(
             o.Id,
@@ -26,6 +29,12 @@ public class GetAllOrdersQueryHandler : IQueryHandler<GetAllOrdersQuery, IReadOn
             o.CreatedAt
         )).ToList();
 
-        return Result.Success<IReadOnlyList<OrderSummaryDto>>(dtos);
+        var result = new PagedResult<OrderSummaryDto>(
+            dtos,
+            totalCount,
+            request.PageNumber,
+            request.PageSize);
+
+        return Result.Success(result);
     }
 }

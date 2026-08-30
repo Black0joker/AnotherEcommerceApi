@@ -27,9 +27,9 @@ public class OrdersController : ControllerBase
     /// Get all orders for the current user.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetUserOrders()
+    public async Task<IActionResult> GetUserOrders([FromQuery] GetUserOrdersQuery query)
     {
-        var result = await _mediator.Send(new GetUserOrdersQuery());
+        var result = await _mediator.Send(query);
 
         if (result.IsFailure)
             return BadRequest(new { error = result.Error!.Code, message = result.Error.Message });
@@ -136,9 +136,9 @@ public class AdminOrdersController : ControllerBase
     /// Get all orders (admin only).
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetAllOrders()
+    public async Task<IActionResult> GetAllOrders([FromQuery] GetAllOrdersQuery query)
     {
-        var result = await _mediator.Send(new GetAllOrdersQuery());
+        var result = await _mediator.Send(query);
 
         if (result.IsFailure)
             return BadRequest(new { error = result.Error!.Code, message = result.Error.Message });

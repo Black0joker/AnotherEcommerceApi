@@ -83,8 +83,8 @@ public class CheckoutFlowTests : IClassFixture<CustomWebApplicationFactory>, IAs
         // Order visible in customer's order history.
         var ordersResponse = await customer.GetAsync("/api/v1/orders");
         Assert.Equal(HttpStatusCode.OK, ordersResponse.StatusCode);
-        var orders = await TestHelpers.ParseJsonAsync(ordersResponse);
-        Assert.Contains(orders.AsArray(), o => o?["id"]?.GetValue<Guid>() == orderId);
+        var ordersPage = await TestHelpers.ParseJsonAsync(ordersResponse);
+        Assert.Contains(ordersPage["items"]!.AsArray(), o => o?["id"]?.GetValue<Guid>() == orderId);
     }
 
     [Fact]
@@ -207,8 +207,8 @@ public class CheckoutFlowTests : IClassFixture<CustomWebApplicationFactory>, IAs
 
         // Their own order list does not contain it either.
         var listResponse = await customerB.GetAsync("/api/v1/orders");
-        var list = await TestHelpers.ParseJsonAsync(listResponse);
-        Assert.DoesNotContain(list.AsArray(), o => o?["id"]?.GetValue<Guid>() == orderId);
+        var listPage = await TestHelpers.ParseJsonAsync(listResponse);
+        Assert.DoesNotContain(listPage["items"]!.AsArray(), o => o?["id"]?.GetValue<Guid>() == orderId);
 
         // Admin can access any order.
         var adminOrderResponse = await adminClient.GetAsync($"/api/v1/admin/orders/{orderId}");

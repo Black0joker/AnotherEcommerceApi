@@ -24,9 +24,10 @@ public class ReviewsController : ControllerBase
     /// Get all approved reviews for a product.
     /// </summary>
     [HttpGet("products/{productId:guid}/reviews")]
-    public async Task<IActionResult> GetProductReviews(Guid productId)
+    public async Task<IActionResult> GetProductReviews(Guid productId, [FromQuery] GetProductReviewsQuery query)
     {
-        var result = await _mediator.Send(new GetProductReviewsQuery(productId));
+        query.ProductId = productId;
+        var result = await _mediator.Send(query);
 
         if (result.IsFailure)
             return BadRequest(new { error = result.Error!.Code, message = result.Error.Message });

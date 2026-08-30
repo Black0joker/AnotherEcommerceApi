@@ -62,6 +62,49 @@ public class OrderRepository : IOrderRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<(IReadOnlyList<Order> Orders, int TotalCount)> GetAllPagedAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Orders.AsNoTracking();
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Items are included for the ItemCount projection; only the current
+        // page is materialized.
+        var orders = await query
+            .Include(o => o.Items)
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (orders, totalCount);
+    }
+
+    public async Task<(IReadOnlyList<Order> Orders, int TotalCount)> GetByUserIdPagedAsync(
+        Guid userId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Orders
+            .AsNoTracking()
+            .Where(o => o.UserId == userId);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var orders = await query
+            .Include(o => o.Items)
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (orders, totalCount);
+    }
+
     public async Task AddAsync(Order entity, CancellationToken cancellationToken = default)
     {
         await _context.Orders.AddAsync(entity, cancellationToken);

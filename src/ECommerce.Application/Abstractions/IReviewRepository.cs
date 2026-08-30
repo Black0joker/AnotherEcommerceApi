@@ -5,6 +5,11 @@ namespace ECommerce.Application.Abstractions;
 public interface IReviewRepository : IRepository<Review>
 {
     Task<IReadOnlyList<Review>> GetByProductIdAsync(Guid productId, CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<Review> Reviews, int TotalCount)> GetApprovedByProductIdPagedAsync(
+        Guid productId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
     Task<Review?> GetByIdWithDetailsAsync(Guid id, CancellationToken cancellationToken = default);
     Task<bool> HasUserPurchasedProductAsync(Guid userId, Guid productId, CancellationToken cancellationToken = default);
     Task<bool> HasUserReviewedProductAsync(Guid userId, Guid productId, CancellationToken cancellationToken = default);

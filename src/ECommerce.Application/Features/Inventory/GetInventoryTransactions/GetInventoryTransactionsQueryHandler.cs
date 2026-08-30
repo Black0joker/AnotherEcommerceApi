@@ -3,7 +3,7 @@ using ECommerce.Application.Common;
 
 namespace ECommerce.Application.Features.Inventory.GetInventoryTransactions;
 
-public class GetInventoryTransactionsQueryHandler : IQueryHandler<GetInventoryTransactionsQuery, IReadOnlyList<InventoryTransactionDto>>
+public class GetInventoryTransactionsQueryHandler : IQueryHandler<GetInventoryTransactionsQuery, PagedResult<InventoryTransactionDto>>
 {
     private readonly IInventoryRepository _inventoryRepository;
 
@@ -12,9 +12,13 @@ public class GetInventoryTransactionsQueryHandler : IQueryHandler<GetInventoryTr
         _inventoryRepository = inventoryRepository;
     }
 
-    public async Task<Result<IReadOnlyList<InventoryTransactionDto>>> Handle(GetInventoryTransactionsQuery request, CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<InventoryTransactionDto>>> Handle(GetInventoryTransactionsQuery request, CancellationToken cancellationToken)
     {
-        var transactions = await _inventoryRepository.GetTransactionsByProductIdAsync(request.ProductId, cancellationToken);
+        var (transactions, totalCount) = await _inventoryRepository.GetTransactionsByProductIdPagedAsync(
+            request.ProductId,
+            request.PageNumber,
+            request.PageSize,
+            cancellationToken);
 
         var dtos = transactions.Select(t => new InventoryTransactionDto(
             t.Id,
@@ -26,6 +30,12 @@ public class GetInventoryTransactionsQueryHandler : IQueryHandler<GetInventoryTr
             t.CreatedAt
         )).ToList();
 
-        return Result.Success<IReadOnlyList<InventoryTransactionDto>>(dtos);
+        var result = new PagedResult<InventoryTransactionDto>(
+            dtos,
+            totalCount,
+            request.PageNumber,
+            request.PageSize);
+
+        return Result.Success(result);
     }
 }

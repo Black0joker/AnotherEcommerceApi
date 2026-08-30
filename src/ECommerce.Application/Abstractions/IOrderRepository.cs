@@ -8,4 +8,13 @@ public interface IOrderRepository : IRepository<Order>
     Task<Order?> GetByOrderNumberAsync(string orderNumber, CancellationToken cancellationToken = default);
     Task<Order?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Order>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<Order> Orders, int TotalCount)> GetAllPagedAsync(
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<Order> Orders, int TotalCount)> GetByUserIdPagedAsync(
+        Guid userId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

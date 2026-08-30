@@ -2,4 +2,7 @@ using ECommerce.Application.Common;
 
 namespace ECommerce.Application.Features.Reviews.GetProductReviews;
 
-public record GetProductReviewsQuery(Guid ProductId) : IQuery<IReadOnlyList<ReviewDto>>;
+public class GetProductReviewsQuery : PagedQuery, IQuery<PagedResult<ReviewDto>>
+{
+    public Guid ProductId { get; set; }
+}

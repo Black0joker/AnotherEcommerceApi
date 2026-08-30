@@ -2,4 +2,7 @@ using ECommerce.Application.Common;
 
 namespace ECommerce.Application.Features.Inventory.GetInventoryTransactions;
 
-public record GetInventoryTransactionsQuery(Guid ProductId) : IQuery<IReadOnlyList<InventoryTransactionDto>>;
+public class GetInventoryTransactionsQuery : PagedQuery, IQuery<PagedResult<InventoryTransactionDto>>
+{
+    public Guid ProductId { get; set; }
+}

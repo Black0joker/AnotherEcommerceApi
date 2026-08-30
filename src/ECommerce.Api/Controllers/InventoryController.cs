@@ -62,9 +62,10 @@ public class InventoryController : ControllerBase
     /// Get inventory transaction history (audit trail) for a product.
     /// </summary>
     [HttpGet("{productId:guid}/transactions")]
-    public async Task<IActionResult> GetTransactions(Guid productId)
+    public async Task<IActionResult> GetTransactions(Guid productId, [FromQuery] GetInventoryTransactionsQuery query)
     {
-        var result = await _mediator.Send(new GetInventoryTransactionsQuery(productId));
+        query.ProductId = productId;
+        var result = await _mediator.Send(query);
 
         if (result.IsFailure)
             return BadRequest(new { error = result.Error!.Code, message = result.Error.Message });

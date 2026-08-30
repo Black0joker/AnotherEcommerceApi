@@ -10,5 +10,10 @@ public interface IInventoryRepository : IRepository<InventoryItem>
     /// </summary>
     Task<IReadOnlyList<InventoryItem>> GetByProductIdsAsync(IReadOnlyCollection<Guid> productIds, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InventoryTransaction>> GetTransactionsByProductIdAsync(Guid productId, CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<InventoryTransaction> Transactions, int TotalCount)> GetTransactionsByProductIdPagedAsync(
+        Guid productId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
     Task AddTransactionAsync(InventoryTransaction transaction, CancellationToken cancellationToken = default);
 }

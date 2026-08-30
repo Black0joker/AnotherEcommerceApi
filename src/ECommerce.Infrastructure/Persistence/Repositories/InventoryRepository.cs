@@ -46,6 +46,28 @@ public class InventoryRepository : IInventoryRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<(IReadOnlyList<InventoryTransaction> Transactions, int TotalCount)> GetTransactionsByProductIdPagedAsync(
+        Guid productId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        // Transactions grow unbounded per product, so paginate server-side.
+        var query = _context.InventoryTransactions
+            .AsNoTracking()
+            .Where(t => t.ProductId == productId);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var transactions = await query
+            .OrderByDescending(t => t.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (transactions, totalCount);
+    }
+
     public async Task AddTransactionAsync(InventoryTransaction transaction, CancellationToken cancellationToken = default)
     {
         await _context.InventoryTransactions.AddAsync(transaction, cancellationToken);
