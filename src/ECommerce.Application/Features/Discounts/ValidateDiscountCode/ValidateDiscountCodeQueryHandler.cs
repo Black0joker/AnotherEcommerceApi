@@ -42,11 +42,19 @@ public class ValidateDiscountCodeQueryHandler : IQueryHandler<ValidateDiscountCo
         }
 
         // Build authoritative pricing lines from server-side product data.
+        // Batch-load products with one query regardless of cart size (previously
+        // one heavy GetByIdWithDetailsAsync round-trip per cart line).
+        // GetByIdsAsync includes only category links, which is exactly what
+        // pricing needs for discount product/category restrictions.
+        var productIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
+
+        var productsById = (await _productRepository.GetByIdsAsync(productIds, cancellationToken))
+            .ToDictionary(p => p.Id);
+
         var lines = new List<PricingLine>();
         foreach (var cartItem in cart.Items)
         {
-            var product = await _productRepository.GetByIdWithDetailsAsync(cartItem.ProductId, cancellationToken);
-            if (product is null || !product.IsActive)
+            if (!productsById.TryGetValue(cartItem.ProductId, out var product) || !product.IsActive)
             {
                 continue;
             }
