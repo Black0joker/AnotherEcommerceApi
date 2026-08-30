@@ -16,7 +16,9 @@ public class OrderRepository : IOrderRepository
 
     public async Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        // Pure read (write paths use GetWithItemsByIdAsync): skip change tracking.
         return await _context.Orders
+            .AsNoTracking()
             .Include(o => o.Items)
             .Include(o => o.ShippingAddress)
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
@@ -33,7 +35,9 @@ public class OrderRepository : IOrderRepository
 
     public async Task<Order?> GetByOrderNumberAsync(string orderNumber, CancellationToken cancellationToken = default)
     {
+        // Pure read: skip change tracking.
         return await _context.Orders
+            .AsNoTracking()
             .Include(o => o.Items)
             .FirstOrDefaultAsync(o => o.OrderNumber == orderNumber, cancellationToken);
     }
@@ -44,14 +48,18 @@ public class OrderRepository : IOrderRepository
         // the filtered unique index IX_Orders_UserId_IdempotencyKey instead
         // of scanning Orders. Scoping by user also prevents one user's retry
         // from matching another user's order that used the same key.
+        // Pure read on the retry path: skip change tracking.
         return await _context.Orders
+            .AsNoTracking()
             .Include(o => o.Items)
             .FirstOrDefaultAsync(o => o.UserId == userId && o.IdempotencyKey == idempotencyKey, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Order>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        // Pure read: skip change tracking.
         return await _context.Orders
+            .AsNoTracking()
             .Include(o => o.Items)
             .Where(o => o.UserId == userId)
             .OrderByDescending(o => o.CreatedAt)
@@ -60,7 +68,9 @@ public class OrderRepository : IOrderRepository
 
     public async Task<IReadOnlyList<Order>> GetAllAsync(CancellationToken cancellationToken = default)
     {
+        // Pure read: skip change tracking.
         return await _context.Orders
+            .AsNoTracking()
             .Include(o => o.Items)
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync(cancellationToken);

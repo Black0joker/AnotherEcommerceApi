@@ -44,7 +44,9 @@ public class ProductRepository : IProductRepository
 
     public async Task<IReadOnlyList<Product>> GetAllAsync(CancellationToken cancellationToken = default)
     {
+        // Pure read (write paths load by id/slug): skip change tracking.
         return await _context.Products
+            .AsNoTracking()
             .Include(p => p.ProductCategories)
             .Include(p => p.InventoryItem)
             .ToListAsync(cancellationToken);
@@ -52,7 +54,10 @@ public class ProductRepository : IProductRepository
 
     public async Task<Product?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
+        // Pure read (also served from cache as a detached graph): skip
+        // change tracking.
         return await _context.Products
+            .AsNoTracking()
             .Include(p => p.ProductCategories)
             .Include(p => p.InventoryItem)
             .Include(p => p.Reviews)
@@ -61,7 +66,9 @@ public class ProductRepository : IProductRepository
 
     public async Task<Product?> GetBySkuAsync(string sku, CancellationToken cancellationToken = default)
     {
+        // Pure read: skip change tracking.
         return await _context.Products
+            .AsNoTracking()
             .Include(p => p.ProductCategories)
             .Include(p => p.InventoryItem)
             .FirstOrDefaultAsync(p => p.SKU == sku, cancellationToken);
@@ -76,8 +83,10 @@ public class ProductRepository : IProductRepository
 
         // Batch load for checkout-style flows: only category links are needed
         // (discount restrictions). Deliberately no Reviews/OrderItems/InventoryItem
-        // includes to keep the query light.
+        // includes to keep the query light. Callers only read price/stock;
+        // inventory rows are loaded and mutated separately.
         return await _context.Products
+            .AsNoTracking()
             .Where(p => ids.Contains(p.Id))
             .Include(p => p.ProductCategories)
             .ToListAsync(cancellationToken);
@@ -111,8 +120,10 @@ public class ProductRepository : IProductRepository
         CancellationToken cancellationToken = default)
     {
         // No Reviews include: rating filtering/sorting uses the persisted
-        // AverageRating/RatingCount aggregates on Product.
+        // AverageRating/RatingCount aggregates on Product. Listing is a pure
+        // read, so skip change tracking.
         var query = _context.Products
+            .AsNoTracking()
             .Include(p => p.ProductCategories)
             .Include(p => p.InventoryItem)
             .AsQueryable();
@@ -194,6 +205,44 @@ public class ProductRepository : IProductRepository
         return await _context.Products.AnyAsync(p => p.SKU == sku, cancellationToken);
     }
 
+    public async Task<ProductDetailRead?> GetProductDetailAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        // Single no-tracking projection for the detail page: scalar fields,
+        // available stock and the persisted rating aggregates. Replaces the
+        // heavy include graph plus the separate average-rating round-trip.
+        return await _context.Products
+            .Where(p => p.Id == id)
+            .Select(p => new ProductDetailRead(
+                p.Id,
+                p.Name,
+                p.Slug,
+                p.Description,
+                p.SKU,
+                p.Price,
+                p.CompareAtPrice,
+                p.IsActive,
+                p.InventoryItem != null ? p.InventoryItem.AvailableQuantity : 0,
+                p.AverageRating,
+                p.RatingCount,
+                p.CreatedAt))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<List<Guid>?> GetCategoryIdsAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        var exists = await _context.Products
+            .AnyAsync(p => p.Id == productId, cancellationToken);
+        if (!exists)
+        {
+            return null;
+        }
+
+        return await _context.ProductCategories
+            .Where(pc => pc.ProductId == productId)
+            .Select(pc => pc.CategoryId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Product>> GetRelatedProductsAsync(
         Guid productId,
         List<Guid> categoryIds,
@@ -202,15 +251,19 @@ public class ProductRepository : IProductRepository
     {
         if (categoryIds.Count == 0)
         {
-            // If no categories, just return random active products
+            // If no categories, just return random active products.
+            // Pure read: skip change tracking.
             return await _context.Products
+                .AsNoTracking()
                 .Where(p => p.IsActive && p.Id != productId)
                 .OrderBy(p => p.CreatedAt)
                 .Take(count)
                 .ToListAsync(cancellationToken);
         }
 
+        // Pure read: skip change tracking.
         return await _context.Products
+            .AsNoTracking()
             .Where(p => p.IsActive && p.Id != productId)
             .Where(p => p.ProductCategories.Any(pc => categoryIds.Contains(pc.CategoryId)))
             .Take(count)

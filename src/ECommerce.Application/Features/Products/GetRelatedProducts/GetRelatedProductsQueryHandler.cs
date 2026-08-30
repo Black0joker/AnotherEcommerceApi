@@ -16,17 +16,16 @@ public class GetRelatedProductsQueryHandler : IQueryHandler<GetRelatedProductsQu
         GetRelatedProductsQuery request,
         CancellationToken cancellationToken)
     {
-        var product = await _productRepository.GetByIdWithDetailsAsync(request.ProductId, cancellationToken);
+        // Lightweight projected category lookup instead of loading the whole
+        // detail graph just to read category ids. Null means "not found".
+        var categoryIds = await _productRepository.GetCategoryIdsAsync(request.ProductId, cancellationToken);
 
-        if (product is null)
+        if (categoryIds is null)
         {
             return Result.Failure<IReadOnlyList<RelatedProductDto>>(Error.NotFound(
                 "Product.NotFound",
                 $"Product with ID '{request.ProductId}' was not found."));
         }
-
-        // Get products from the same category
-        var categoryIds = product.ProductCategories.Select(pc => pc.CategoryId).ToList();
 
         var relatedProducts = await _productRepository.GetRelatedProductsAsync(
             request.ProductId,
@@ -34,13 +33,16 @@ public class GetRelatedProductsQueryHandler : IQueryHandler<GetRelatedProductsQu
             request.Count,
             cancellationToken);
 
+        // Ratings come from the persisted approved-review aggregates. The
+        // navigation is not included on this path, and reading it used to
+        // hit an empty p.Reviews collection so every rating reported 0.
         var dtos = relatedProducts.Select(p => new RelatedProductDto(
             p.Id,
             p.Name,
             p.Slug,
             p.Price,
             p.CompareAtPrice,
-            p.Reviews.Count > 0 ? p.Reviews.Average(r => r.Rating) : 0
+            p.AverageRating
         )).ToList();
 
         return Result.Success<IReadOnlyList<RelatedProductDto>>(dtos);

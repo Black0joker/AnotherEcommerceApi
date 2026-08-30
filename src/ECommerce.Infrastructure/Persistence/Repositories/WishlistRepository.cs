@@ -16,7 +16,9 @@ public class WishlistRepository : IWishlistRepository
 
     public async Task<Wishlist?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        // Pure read (write paths load by user id): skip change tracking.
         return await _context.Wishlists
+            .AsNoTracking()
             .FirstOrDefaultAsync(w => w.Id == id, cancellationToken);
     }
 

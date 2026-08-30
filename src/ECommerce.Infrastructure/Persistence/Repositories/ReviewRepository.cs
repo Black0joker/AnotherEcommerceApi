@@ -29,7 +29,9 @@ public class ReviewRepository : IReviewRepository
 
     public async Task<IReadOnlyList<Review>> GetByProductIdAsync(Guid productId, CancellationToken cancellationToken = default)
     {
+        // Pure read: skip change tracking.
         return await _context.Reviews
+            .AsNoTracking()
             .Include(r => r.User)
             .Where(r => r.ProductId == productId)
             .OrderByDescending(r => r.CreatedAt)

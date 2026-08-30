@@ -24,13 +24,17 @@ public class DiscountRepository : IDiscountRepository
 
     public async Task<IReadOnlyList<Discount>> GetAllAsync(CancellationToken cancellationToken = default)
     {
+        // Admin listing is a pure read: skip change tracking.
         return await _context.Discounts
+            .AsNoTracking()
             .OrderByDescending(d => d.CreatedAt)
             .ToListAsync(cancellationToken);
     }
 
     public async Task<Discount?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
+        // Intentionally tracked: checkout mutates the returned entity to
+        // record discount usage within the order transaction.
         return await _context.Discounts
             .Include(d => d.DiscountProducts)
             .Include(d => d.DiscountCategories)
@@ -41,7 +45,9 @@ public class DiscountRepository : IDiscountRepository
     {
         var now = DateTime.UtcNow;
 
+        // Pure read: skip change tracking.
         return await _context.Discounts
+            .AsNoTracking()
             .Where(d => d.IsActive
                 && d.StartsAt <= now
                 && (d.EndsAt == null || d.EndsAt.Value >= now)

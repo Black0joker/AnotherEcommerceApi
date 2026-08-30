@@ -24,7 +24,9 @@ public class CategoryRepository : ICategoryRepository
 
     public async Task<IReadOnlyList<Category>> GetAllAsync(CancellationToken cancellationToken = default)
     {
+        // Pure read (write paths load by id): skip change tracking.
         return await _context.Categories
+            .AsNoTracking()
             .Include(c => c.ParentCategory)
             .Include(c => c.ProductCategories)
             .ToListAsync(cancellationToken);
@@ -32,14 +34,20 @@ public class CategoryRepository : ICategoryRepository
 
     public async Task<Category?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
+        // Pure read (also served from cache as detached entities): skip
+        // change tracking.
         return await _context.Categories
+            .AsNoTracking()
             .Include(c => c.ParentCategory)
             .FirstOrDefaultAsync(c => c.Slug == slug, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Category>> GetActiveCategoriesAsync(CancellationToken cancellationToken = default)
     {
+        // Pure read (also served from cache as detached entities): skip
+        // change tracking.
         return await _context.Categories
+            .AsNoTracking()
             .Where(c => c.IsActive)
             .Include(c => c.ParentCategory)
             .Include(c => c.ProductCategories)
@@ -50,7 +58,9 @@ public class CategoryRepository : ICategoryRepository
 
     public async Task<IReadOnlyList<Category>> GetChildCategoriesAsync(Guid parentCategoryId, CancellationToken cancellationToken = default)
     {
+        // Pure read: skip change tracking.
         return await _context.Categories
+            .AsNoTracking()
             .Where(c => c.ParentCategoryId == parentCategoryId && c.IsActive)
             .OrderBy(c => c.DisplayOrder)
             .ThenBy(c => c.Name)

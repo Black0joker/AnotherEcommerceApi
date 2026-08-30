@@ -16,7 +16,9 @@ public class CartRepository : ICartRepository
 
     public async Task<Cart?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        // Pure read (write paths load by user id): skip change tracking.
         return await _context.Carts
+            .AsNoTracking()
             .Include(c => c.Items)
                 .ThenInclude(i => i.Product)
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);

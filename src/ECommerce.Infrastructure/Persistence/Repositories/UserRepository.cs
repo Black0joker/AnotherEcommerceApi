@@ -88,7 +88,9 @@ public class UserRepository : IUserRepository
         string? role,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<ApplicationUser> query = _context.Users.AsQueryable();
+        // Admin listing (and the last-admin guard) only reads users: skip
+        // change tracking.
+        IQueryable<ApplicationUser> query = _context.Users.AsNoTracking();
 
         // When a role filter is supplied, resolve membership server-side via a
         // subquery join through the Identity role/user-role tables. This keeps

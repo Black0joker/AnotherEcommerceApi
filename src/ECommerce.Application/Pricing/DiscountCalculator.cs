@@ -31,7 +31,7 @@ public class DiscountCalculator : IDiscountCalculator
         if (string.IsNullOrWhiteSpace(discountCode))
         {
             var grandTotal = Normalize(subtotal + taxAmount + shippingAmount);
-            return Result.Success(new PricingResult(subtotal, 0m, taxAmount, shippingAmount, grandTotal, null));
+            return Result.Success(new PricingResult(subtotal, 0m, taxAmount, shippingAmount, grandTotal, null, null));
         }
 
         var discount = await _discountRepository.GetByCodeAsync(discountCode, cancellationToken);
@@ -68,7 +68,9 @@ public class DiscountCalculator : IDiscountCalculator
         discountAmount = Math.Min(discountAmount, eligibleSubtotal);
         var grandTotal2 = Normalize(subtotal - discountAmount + taxAmount + shippingAmount);
 
-        return Result.Success(new PricingResult(subtotal, discountAmount, taxAmount, shippingAmount, grandTotal2, discount.Code));
+        // Hand the loaded entity back so checkout can increment usage
+        // without a second GetByCodeAsync round-trip.
+        return Result.Success(new PricingResult(subtotal, discountAmount, taxAmount, shippingAmount, grandTotal2, discount.Code, discount));
     }
 
     private static bool IsLineEligible(PricingLine line, Discount discount)

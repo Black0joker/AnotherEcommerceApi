@@ -206,14 +206,11 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
         await _orderRepository.AddAsync(order, cancellationToken);
 
         // 6b. Record discount usage (atomic within the same transaction).
-        if (!string.IsNullOrWhiteSpace(pricing.AppliedDiscountCode))
+        // Reuses the entity the calculator already loaded - no second fetch.
+        if (pricing.AppliedDiscount is not null)
         {
-            var appliedDiscount = await _discountRepository.GetByCodeAsync(pricing.AppliedDiscountCode, cancellationToken);
-            if (appliedDiscount is not null)
-            {
-                appliedDiscount.IncrementUsage();
-                _discountRepository.Update(appliedDiscount);
-            }
+            pricing.AppliedDiscount.IncrementUsage();
+            _discountRepository.Update(pricing.AppliedDiscount);
         }
 
         // 7. Clear cart

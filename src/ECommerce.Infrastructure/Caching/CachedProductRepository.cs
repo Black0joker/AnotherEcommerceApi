@@ -38,6 +38,33 @@ public class CachedProductRepository : IProductRepository
         return _inner.GetByIdWithDetailsAsync(id, cancellationToken);
     }
 
+    public async Task<ProductDetailRead?> GetProductDetailAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        // Pure read model - safe to cache. Update/Delete invalidate this key
+        // via CacheKeys.ProductById; stock changes ride out the TTL.
+        var cacheKey = CacheKeys.ProductById(id);
+
+        var cached = await _cache.GetAsync<ProductDetailRead>(cacheKey, cancellationToken);
+        if (cached is not null)
+            return cached;
+
+        var detail = await _inner.GetProductDetailAsync(id, cancellationToken);
+
+        if (detail is not null)
+        {
+            await _cache.SetAsync(cacheKey, detail, CacheKeys.ProductDetailExpiration, cancellationToken);
+        }
+
+        return detail;
+    }
+
+    public Task<List<Guid>?> GetCategoryIdsAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        // Tiny projection feeding the related-products query; the related
+        // list itself is cached, so this stays a plain pass-through.
+        return _inner.GetCategoryIdsAsync(productId, cancellationToken);
+    }
+
     public Task<bool> HasOrderItemsAsync(Guid productId, CancellationToken cancellationToken = default)
     {
         // Pure EXISTS probe - no cache needed.

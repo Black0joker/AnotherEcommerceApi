@@ -16,7 +16,9 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<InventoryItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        // Pure read (write paths load by product id): skip change tracking.
         return await _context.InventoryItems
+            .AsNoTracking()
             .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
     }
 
@@ -40,7 +42,9 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<IReadOnlyList<InventoryTransaction>> GetTransactionsByProductIdAsync(Guid productId, CancellationToken cancellationToken = default)
     {
+        // Audit-trail listing is a pure read: skip change tracking.
         return await _context.InventoryTransactions
+            .AsNoTracking()
             .Where(t => t.ProductId == productId)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync(cancellationToken);

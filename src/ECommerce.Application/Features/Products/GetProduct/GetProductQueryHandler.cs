@@ -6,19 +6,18 @@ namespace ECommerce.Application.Features.Products.GetProduct;
 public class GetProductQueryHandler : IQueryHandler<GetProductQuery, ProductDto>
 {
     private readonly IProductRepository _productRepository;
-    private readonly IReviewRepository _reviewRepository;
 
-    public GetProductQueryHandler(
-        IProductRepository productRepository,
-        IReviewRepository reviewRepository)
+    public GetProductQueryHandler(IProductRepository productRepository)
     {
         _productRepository = productRepository;
-        _reviewRepository = reviewRepository;
     }
 
     public async Task<Result<ProductDto>> Handle(GetProductQuery request, CancellationToken cancellationToken)
     {
-        var product = await _productRepository.GetByIdWithDetailsAsync(request.Id, cancellationToken);
+        // One projected query: no entity graph, no Reviews include, and no
+        // second round-trip for the average. Rating and review count come
+        // from the persisted approved-review aggregates on Product.
+        var product = await _productRepository.GetProductDetailAsync(request.Id, cancellationToken);
 
         if (product is null)
         {
@@ -26,8 +25,6 @@ public class GetProductQueryHandler : IQueryHandler<GetProductQuery, ProductDto>
                 "Product.NotFound",
                 $"Product with ID '{request.Id}' was not found."));
         }
-
-        var averageRating = await _reviewRepository.GetAverageRatingAsync(product.Id, cancellationToken);
 
         var dto = new ProductDto(
             product.Id,
@@ -38,9 +35,9 @@ public class GetProductQueryHandler : IQueryHandler<GetProductQuery, ProductDto>
             product.Price,
             product.CompareAtPrice,
             product.IsActive,
-            product.InventoryItem?.AvailableQuantity ?? 0,
-            averageRating,
-            product.Reviews.Count,
+            product.AvailableQuantity,
+            product.AverageRating,
+            product.RatingCount,
             product.CreatedAt
         );
 

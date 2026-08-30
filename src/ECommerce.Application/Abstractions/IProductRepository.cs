@@ -14,11 +14,25 @@ public interface IProductRepository : IRepository<Product>
     Task<IReadOnlyList<Product>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default);
     /// <summary>
     /// Loads a product with its read-side detail graph (category links,
-    /// inventory and reviews) but without the order-item history. Use this
-    /// for detail views and flows that need navigations; use the lightweight
-    /// GetByIdAsync for existence checks and scalar-only flows.
+    /// inventory and reviews) but without the order-item history. Kept
+    /// change-tracked because the product update flow mutates the result;
+    /// pure reads should prefer the projected GetProductDetailAsync or the
+    /// lightweight GetByIdAsync.
     /// </summary>
     Task<Product?> GetByIdWithDetailsAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Single projected, no-tracking read for the product detail page:
+    /// scalar fields plus available stock and the persisted rating
+    /// aggregates. Replaces a heavy include graph plus a follow-up
+    /// average-rating query with one round-trip.
+    /// </summary>
+    Task<ProductDetailRead?> GetProductDetailAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Projected category-id lookup for related-product queries. Returns
+    /// null when the product does not exist so callers can distinguish
+    /// "not found" from "has no categories".
+    /// </summary>
+    Task<List<Guid>?> GetCategoryIdsAsync(Guid productId, CancellationToken cancellationToken = default);
     /// <summary>
     /// Lightweight EXISTS check for order-item history, used to decide
     /// between soft delete (deactivation) and hard delete without loading
