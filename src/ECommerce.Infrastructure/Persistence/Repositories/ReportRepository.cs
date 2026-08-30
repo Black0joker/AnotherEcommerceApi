@@ -20,9 +20,21 @@ public class ReportRepository : IReportRepository
         var orders = _context.Orders
             .Where(o => o.CreatedAt >= from && o.CreatedAt <= to && o.Status != OrderStatus.Cancelled);
 
-        var orderCount = await orders.CountAsync(cancellationToken);
-        var totalRevenue = await orders.SumAsync(o => o.GrandTotal, cancellationToken);
-        var totalDiscount = await orders.SumAsync(o => o.DiscountAmount, cancellationToken);
+        // Single aggregate query: count and both sums in one round-trip
+        // instead of three sequential queries.
+        var stats = await orders
+            .GroupBy(o => 1)
+            .Select(g => new
+            {
+                OrderCount = g.Count(),
+                TotalRevenue = g.Sum(o => o.GrandTotal),
+                TotalDiscount = g.Sum(o => o.DiscountAmount)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var orderCount = stats?.OrderCount ?? 0;
+        var totalRevenue = stats?.TotalRevenue ?? 0m;
+        var totalDiscount = stats?.TotalDiscount ?? 0m;
         var averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0m;
 
         return new SalesSummaryDto(from, to, orderCount, totalRevenue, averageOrderValue, totalDiscount);
@@ -65,9 +77,21 @@ public class ReportRepository : IReportRepository
 
     public async Task<CustomerSummaryDto> GetCustomerSummaryAsync(DateTime from, DateTime to, CancellationToken cancellationToken = default)
     {
-        var totalCustomers = await _context.Users.CountAsync(cancellationToken);
-        var newCustomersInRange = await _context.Users.CountAsync(u => u.CreatedAt >= from && u.CreatedAt <= to, cancellationToken);
-        var activeCustomers = await _context.Users.CountAsync(u => u.IsActive, cancellationToken);
+        // Single aggregate query with conditional counts instead of three
+        // separate COUNT round-trips.
+        var stats = await _context.Users
+            .GroupBy(u => 1)
+            .Select(g => new
+            {
+                TotalCustomers = g.Count(),
+                NewCustomersInRange = g.Count(u => u.CreatedAt >= from && u.CreatedAt <= to),
+                ActiveCustomers = g.Count(u => u.IsActive)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var totalCustomers = stats?.TotalCustomers ?? 0;
+        var newCustomersInRange = stats?.NewCustomersInRange ?? 0;
+        var activeCustomers = stats?.ActiveCustomers ?? 0;
         var inactiveCustomers = totalCustomers - activeCustomers;
 
         return new CustomerSummaryDto(totalCustomers, newCustomersInRange, activeCustomers, inactiveCustomers);

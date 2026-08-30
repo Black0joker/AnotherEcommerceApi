@@ -24,9 +24,9 @@ public class GetCategoriesQueryHandler : IQueryHandler<GetCategoriesQuery, IRead
             c.Slug,
             c.Description,
             c.ParentCategoryId,
-            c.ParentCategory?.Name,
+            c.ParentCategoryName,
             c.DisplayOrder,
-            c.ProductCategories.Count
+            c.ProductCount
         )).ToList();
 
         return Result.Success<IReadOnlyList<CategoryDto>>(dtos);

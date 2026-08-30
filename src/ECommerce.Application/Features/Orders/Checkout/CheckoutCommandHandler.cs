@@ -217,11 +217,13 @@ public class CheckoutCommandHandler : ICommandHandler<CheckoutCommand, CheckoutR
         cart.Items.Clear();
         _cartRepository.Update(cart);
 
-        // 8. Commit transaction (atomic - all or nothing)
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        // 9. Enqueue order confirmation email (background job, does not block response)
+        // 8. Enqueue order confirmation email inside the unit of work: the
+        // outbox row commits atomically with the order (transactional outbox),
+        // so the job cannot be lost to a crash or restart after checkout.
         await _jobQueue.EnqueueAsync(new SendOrderConfirmationJob(order.Id), cancellationToken);
+
+        // 9. Commit transaction (atomic - all or nothing)
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var resultDto = new CheckoutResultDto(
             order.Id,

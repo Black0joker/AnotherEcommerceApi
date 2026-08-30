@@ -4,7 +4,11 @@ namespace ECommerce.Application.Abstractions;
 
 public interface IProductRepository : IRepository<Product>
 {
-    Task<Product?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Single projected, no-tracking read for slug lookups: the same shape as
+    /// <see cref="GetProductDetailAsync"/>, safe to cache without entity graphs.
+    /// </summary>
+    Task<ProductDetailRead?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
     Task<Product?> GetBySkuAsync(string sku, CancellationToken cancellationToken = default);
     /// <summary>
     /// Batch-loads products by id with only the category links included
@@ -59,7 +63,11 @@ public interface IProductRepository : IRepository<Product>
         string? sortBy,
         CancellationToken cancellationToken = default);
     Task<bool> ExistsBySkuAsync(string sku, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Product>> GetRelatedProductsAsync(
+    /// <summary>
+    /// Projected related-product read: only display fields, computed
+    /// server-side so the cached payload stays tiny.
+    /// </summary>
+    Task<IReadOnlyList<RelatedProductRead>> GetRelatedProductsAsync(
         Guid productId,
         List<Guid> categoryIds,
         int count,

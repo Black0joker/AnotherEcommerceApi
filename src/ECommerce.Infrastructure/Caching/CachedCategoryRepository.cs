@@ -40,11 +40,13 @@ public class CachedCategoryRepository : ICategoryRepository
         return await _inner.GetBySlugAsync(slug, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Category>> GetActiveCategoriesAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CategoryRead>> GetActiveCategoriesAsync(CancellationToken cancellationToken = default)
     {
+        // Cache the flat projection, not an entity graph - small payload,
+        // no circular Parent/SubCategory navigations to serialize.
         var cacheKey = CacheKeys.CategoryList();
 
-        var cached = await _cache.GetAsync<List<Category>>(cacheKey, cancellationToken);
+        var cached = await _cache.GetAsync<List<CategoryRead>>(cacheKey, cancellationToken);
         if (cached is not null)
             return cached;
 
@@ -87,17 +89,18 @@ public class CachedCategoryRepository : ICategoryRepository
 
     public void Update(Category entity)
     {
-        // IRepository<T> contract. Prefer UpdateAsync - this member schedules
-        // cache invalidation without blocking (the cache service swallows its
-        // own failures, so fire-and-forget here is safe).
-        _ = UpdateCoreAsync(entity, CancellationToken.None);
+        // IRepository<T> contract. Synchronous callers get the EF state change
+        // only: cache invalidation happens exclusively in UpdateAsync so it is
+        // awaited in the request flow instead of racing past the response as a
+        // fire-and-forget task. All write-path handlers use UpdateAsync.
+        _inner.Update(entity);
     }
 
     public void Delete(Category entity)
     {
-        // IRepository<T> contract. Prefer DeleteAsync - see Update for why
-        // invalidation is fire-and-forget instead of blocking.
-        _ = DeleteCoreAsync(entity, CancellationToken.None);
+        // IRepository<T> contract. See Update: invalidation is awaited in
+        // DeleteAsync, never fired-and-forgotten here.
+        _inner.Delete(entity);
     }
 
     private async Task UpdateCoreAsync(Category entity, CancellationToken cancellationToken)

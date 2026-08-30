@@ -61,16 +61,11 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-        // Register Redis caching
+        // Register Redis caching. A single shared multiplexer serves the
+        // distributed cache, health checks, and pattern invalidation.
+        // Lazy: the app still boots when Redis is temporarily unavailable;
+        // operations degrade to cache misses.
         var redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
-        services.AddStackExchangeRedisCache(options =>
-        {
-            options.Configuration = redisConnectionString;
-            options.InstanceName = "ECommerce:";
-        });
-
-        // Shared Redis connection (lazy: the app still boots when Redis is
-        // temporarily unavailable; operations degrade to cache misses).
         services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(_ =>
             StackExchange.Redis.ConnectionMultiplexer.Connect(
                 new StackExchange.Redis.ConfigurationOptions
@@ -78,6 +73,17 @@ public static class DependencyInjection
                     EndPoints = { redisConnectionString },
                     AbortOnConnectFail = false
                 }));
+
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.InstanceName = "ECommerce:";
+        });
+
+        // Point the Redis distributed cache at the shared connection instead
+        // of letting it open a second multiplexer from a configuration string.
+        services.AddOptions<Microsoft.Extensions.Caching.StackExchangeRedis.RedisCacheOptions>()
+            .Configure<StackExchange.Redis.IConnectionMultiplexer>((options, connection) =>
+                options.ConnectionMultiplexerFactory = () => Task.FromResult(connection));
 
         // Register cache service
         services.AddSingleton<ICacheService, RedisCacheService>();
@@ -113,10 +119,12 @@ public static class DependencyInjection
         var uploadsPath = Path.Combine(AppContext.BaseDirectory, "uploads");
         services.AddSingleton<IFileStorage>(new Storage.LocalFileStorage(uploadsPath, "/uploads"));
 
-        // Register background jobs
-        services.AddSingleton<ChannelBackgroundJobQueue>();
-        services.AddSingleton<IBackgroundJobQueue>(sp => sp.GetRequiredService<ChannelBackgroundJobQueue>());
-        services.AddHostedService<BackgroundJobWorker>();
+        // Durable background jobs (transactional outbox). Enqueue stages a row
+        // in the caller's database transaction, so jobs commit atomically with
+        // the business data, survive restarts, and never block the request
+        // path on queue capacity. The processor polls pending rows.
+        services.AddScoped<IBackgroundJobQueue, OutboxBackgroundJobQueue>();
+        services.AddHostedService<OutboxJobProcessor>();
 
         // Register job handlers
         services.AddScoped<IJobHandler<SendEmailJob>, SendEmailJobHandler>();

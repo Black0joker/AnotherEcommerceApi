@@ -42,17 +42,24 @@ public class CategoryRepository : ICategoryRepository
             .FirstOrDefaultAsync(c => c.Slug == slug, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Category>> GetActiveCategoriesAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CategoryRead>> GetActiveCategoriesAsync(CancellationToken cancellationToken = default)
     {
-        // Pure read (also served from cache as detached entities): skip
-        // change tracking.
+        // Single no-tracking projection (also served from cache): parent name
+        // and product count are computed server-side instead of shipping
+        // entity graphs over the wire for in-memory counting.
         return await _context.Categories
-            .AsNoTracking()
             .Where(c => c.IsActive)
-            .Include(c => c.ParentCategory)
-            .Include(c => c.ProductCategories)
             .OrderBy(c => c.DisplayOrder)
             .ThenBy(c => c.Name)
+            .Select(c => new CategoryRead(
+                c.Id,
+                c.Name,
+                c.Slug,
+                c.Description,
+                c.ParentCategoryId,
+                c.ParentCategory != null ? c.ParentCategory.Name : null,
+                c.DisplayOrder,
+                c.ProductCategories.Count))
             .ToListAsync(cancellationToken);
     }
 

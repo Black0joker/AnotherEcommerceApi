@@ -1,4 +1,5 @@
 using ECommerce.Domain.Entities;
+using ECommerce.Infrastructure.Persistence.Outbox;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     public DbSet<DiscountProduct> DiscountProducts => Set<DiscountProduct>();
     public DbSet<DiscountCategory> DiscountCategories => Set<DiscountCategory>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<OutboxJob> OutboxJobs => Set<OutboxJob>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

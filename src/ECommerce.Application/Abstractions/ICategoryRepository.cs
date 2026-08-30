@@ -12,7 +12,11 @@ public interface ICategoryRepository : IRepository<Category>
     Task UpdateAsync(Category entity, CancellationToken cancellationToken = default);
     Task DeleteAsync(Category entity, CancellationToken cancellationToken = default);
     Task<Category?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Category>> GetActiveCategoriesAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Projected active-category list: flat, cache-friendly read model with
+    /// parent name and product count computed server-side.
+    /// </summary>
+    Task<IReadOnlyList<CategoryRead>> GetActiveCategoriesAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Category>> GetChildCategoriesAsync(Guid parentCategoryId, CancellationToken cancellationToken = default);
     Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default);
 }

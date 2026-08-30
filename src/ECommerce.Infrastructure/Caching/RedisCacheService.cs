@@ -8,6 +8,8 @@ namespace ECommerce.Infrastructure.Caching;
 
 public class RedisCacheService : ICacheService
 {
+    private const int DeleteBatchSize = 250;
+
     private readonly IDistributedCache _cache;
     private readonly IConnectionMultiplexer _redis;
     private static readonly JsonSerializerOptions _jsonOptions = new()
@@ -78,13 +80,39 @@ public class RedisCacheService : ICacheService
         try
         {
             var db = _redis.GetDatabase();
-            var server = _redis.GetServer(_redis.GetEndPoints().First());
+            var match = pattern.EndsWith('*') ? pattern : $"{pattern}*";
+            var batch = new List<RedisKey>(DeleteBatchSize);
 
-            var keys = server.Keys(pattern: $"{pattern}*").ToArray();
-
-            if (keys.Length > 0)
+            // Cursor-based SCAN (async enumeration) on every primary endpoint
+            // instead of a blocking KEYS walk on a single server. Deletes are
+            // issued in bounded batches so large keyspaces never produce one
+            // oversized command.
+            foreach (var endPoint in _redis.GetEndPoints())
             {
-                await db.KeyDeleteAsync(keys);
+                var server = _redis.GetServer(endPoint);
+                if (server.IsReplica || !server.IsConnected)
+                {
+                    continue;
+                }
+
+                await foreach (var key in server.KeysAsync(pattern: match, pageSize: DeleteBatchSize))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    batch.Add(key);
+
+                    if (batch.Count < DeleteBatchSize)
+                    {
+                        continue;
+                    }
+
+                    await db.KeyDeleteAsync([.. batch]);
+                    batch.Clear();
+                }
+            }
+
+            if (batch.Count > 0)
+            {
+                await db.KeyDeleteAsync([.. batch]);
             }
         }
         catch
