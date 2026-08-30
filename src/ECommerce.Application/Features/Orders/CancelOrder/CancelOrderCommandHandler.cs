@@ -60,11 +60,15 @@ public class CancelOrderCommandHandler : ICommandHandler<CancelOrderCommand, boo
         // Cancel the order
         order.Cancel(request.Reason);
 
-        // Release reserved inventory
+        // Release reserved inventory. Batch-load all inventory rows in one
+        // query regardless of order size (previously one round-trip per item).
+        var productIds = order.Items.Select(i => i.ProductId).Distinct().ToList();
+        var inventoryByProductId = (await _inventoryRepository.GetByProductIdsAsync(productIds, cancellationToken))
+            .ToDictionary(i => i.ProductId);
+
         foreach (var item in order.Items)
         {
-            var inventory = await _inventoryRepository.GetByProductIdAsync(item.ProductId, cancellationToken);
-            if (inventory is not null)
+            if (inventoryByProductId.TryGetValue(item.ProductId, out var inventory))
             {
                 inventory.Release(item.Quantity);
 

@@ -6,6 +6,13 @@ public interface IUserRepository : IRepository<ApplicationUser>
 {
     Task<ApplicationUser?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<string>> GetRolesAsync(Guid userId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Batch-loads role names for a set of users in one server-side query,
+    /// keyed by user id. Users without roles are absent from the result.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetRolesByUserIdsAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken = default);
     Task AddToRoleAsync(ApplicationUser user, string role, CancellationToken cancellationToken = default);
     Task RemoveFromRoleAsync(ApplicationUser user, string role, CancellationToken cancellationToken = default);
     Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default);

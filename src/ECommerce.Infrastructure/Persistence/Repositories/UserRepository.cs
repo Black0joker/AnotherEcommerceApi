@@ -34,11 +34,35 @@ public class UserRepository : IUserRepository
 
     public async Task<IReadOnlyList<string>> GetRolesAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await _userManager.FindByIdAsync(userId.ToString());
-        if (user is null) return new List<string>();
+        // Single server-side join through the Identity user-role tables instead
+        // of UserManager's FindByIdAsync + GetRolesAsync round-trips.
+        return await _context.UserRoles
+            .Where(ur => ur.UserId == userId)
+            .Join(_context.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name!)
+            .ToListAsync(cancellationToken);
+    }
 
-        var roles = await _userManager.GetRolesAsync(user);
-        return roles.ToList();
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetRolesByUserIdsAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<string>>();
+        }
+
+        // One server-side query for the whole page of users instead of two
+        // UserManager round-trips per user.
+        var userRoles = await _context.UserRoles
+            .Where(ur => userIds.Contains(ur.UserId))
+            .Join(_context.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => new { ur.UserId, RoleName = r.Name! })
+            .ToListAsync(cancellationToken);
+
+        return userRoles
+            .GroupBy(x => x.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<string>)g.Select(x => x.RoleName).ToList());
     }
 
     public async Task AddToRoleAsync(ApplicationUser user, string role, CancellationToken cancellationToken = default)
@@ -66,12 +90,15 @@ public class UserRepository : IUserRepository
     {
         IQueryable<ApplicationUser> query = _context.Users.AsQueryable();
 
-        // When a role filter is supplied, resolve the member user IDs via the
-        // UserManager first (Identity tables are not exposed as DbSets on this context).
+        // When a role filter is supplied, resolve membership server-side via a
+        // subquery join through the Identity role/user-role tables. This keeps
+        // the filtering in SQL instead of materializing every user in the role
+        // into memory and shipping a potentially huge IN (...) parameter list.
         if (!string.IsNullOrWhiteSpace(role))
         {
-            var roleUsers = await _userManager.GetUsersInRoleAsync(role);
-            var roleUserIds = roleUsers.Select(u => u.Id).ToHashSet();
+            var roleUserIds = _context.Roles
+                .Where(r => r.Name == role)
+                .Join(_context.UserRoles, r => r.Id, ur => ur.RoleId, (r, ur) => ur.UserId);
             query = query.Where(u => roleUserIds.Contains(u.Id));
         }
 

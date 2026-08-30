@@ -30,12 +30,16 @@ public class GetAdminUsersQueryHandler : IQueryHandler<GetAdminUsersQuery, GetAd
             request.Role,
             cancellationToken);
 
-        var dtos = new List<AdminUserDto>();
-        foreach (var user in users)
-        {
-            var roles = await _userRepository.GetRolesAsync(user.Id, cancellationToken);
-            dtos.Add(AdminUsersMapper.ToDto(user, roles));
-        }
+        // One batch query for all roles on the page instead of ~2 round-trips
+        // per user (previously up to 200+ extra queries for a 100-user page).
+        var userIds = users.Select(u => u.Id).ToList();
+        var rolesByUserId = await _userRepository.GetRolesByUserIdsAsync(userIds, cancellationToken);
+
+        var dtos = users
+            .Select(user => AdminUsersMapper.ToDto(
+                user,
+                rolesByUserId.TryGetValue(user.Id, out var roles) ? roles : Array.Empty<string>()))
+            .ToList();
 
         return Result.Success(new GetAdminUsersResult(dtos, totalCount, pageNumber, pageSize));
     }
