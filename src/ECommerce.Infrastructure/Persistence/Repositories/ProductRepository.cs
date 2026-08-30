@@ -110,23 +110,25 @@ public class ProductRepository : IProductRepository
         string? sortBy,
         CancellationToken cancellationToken = default)
     {
+        // No Reviews include: rating filtering/sorting uses the persisted
+        // AverageRating/RatingCount aggregates on Product.
         var query = _context.Products
             .Include(p => p.ProductCategories)
             .Include(p => p.InventoryItem)
-            .Include(p => p.Reviews)
             .AsQueryable();
 
         // Only active products for public queries
         query = query.Where(p => p.IsActive);
 
-        // Search
+        // Search. Plain Contains: wrapping the columns in LOWER() is
+        // non-sargable and defeats IX_Products_Name; SQL Server's default
+        // collation is case-insensitive, so no lowercasing is needed.
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var searchLower = search.ToLower();
             query = query.Where(p =>
-                p.Name.ToLower().Contains(searchLower) ||
-                (p.Description != null && p.Description.ToLower().Contains(searchLower)) ||
-                p.SKU.ToLower().Contains(searchLower));
+                p.Name.Contains(search) ||
+                (p.Description != null && p.Description.Contains(search)) ||
+                p.SKU.Contains(search));
         }
 
         // Filter by category
@@ -146,15 +148,17 @@ public class ProductRepository : IProductRepository
             query = query.Where(p => p.Price <= maxPrice.Value);
         }
 
-        // Filter by rating
+        // Filter by rating using the persisted approved-review aggregates
+        // (indexed on Product) instead of a correlated Reviews.Average
+        // subquery evaluated per row.
         if (minRating.HasValue)
         {
-            query = query.Where(p => p.Reviews.Any() && p.Reviews.Average(r => r.Rating) >= minRating.Value);
+            query = query.Where(p => p.RatingCount > 0 && p.AverageRating >= minRating.Value);
         }
 
         if (maxRating.HasValue)
         {
-            query = query.Where(p => p.Reviews.Any() && p.Reviews.Average(r => r.Rating) <= maxRating.Value);
+            query = query.Where(p => p.RatingCount > 0 && p.AverageRating <= maxRating.Value);
         }
 
         // Filter by availability
@@ -173,7 +177,7 @@ public class ProductRepository : IProductRepository
             "name_asc" => query.OrderBy(p => p.Name),
             "name_desc" => query.OrderByDescending(p => p.Name),
             "newest" => query.OrderByDescending(p => p.CreatedAt),
-            "rating" => query.OrderByDescending(p => p.Reviews.Any() ? p.Reviews.Average(r => r.Rating) : 0),
+            "rating" => query.OrderByDescending(p => p.AverageRating),
             _ => query.OrderByDescending(p => p.CreatedAt)
         };
 

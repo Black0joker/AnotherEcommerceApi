@@ -88,6 +88,23 @@ public class ReviewRepository : IReviewRepository
             .CountAsync(r => r.ProductId == productId && r.IsApproved, cancellationToken);
     }
 
+    public async Task RecalculateProductRatingAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        var product = await _context.Products
+            .FirstOrDefaultAsync(p => p.Id == productId, cancellationToken);
+        if (product is null)
+        {
+            return;
+        }
+
+        product.RatingCount = await _context.Reviews
+            .CountAsync(r => r.ProductId == productId && r.IsApproved, cancellationToken);
+
+        product.AverageRating = await _context.Reviews
+            .Where(r => r.ProductId == productId && r.IsApproved)
+            .AverageAsync(r => (double?)r.Rating, cancellationToken) ?? 0;
+    }
+
     public async Task<IReadOnlyList<Review>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Reviews

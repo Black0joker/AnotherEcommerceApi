@@ -55,6 +55,8 @@ public class UpdateReviewCommandHandler : ICommandHandler<UpdateReviewCommand, R
                 $"Review with ID '{request.ReviewId}' was not found."));
         }
 
+        var wasApproved = review.IsApproved;
+
         review.Rating = request.Rating;
         review.Title = request.Title;
         review.Comment = request.Comment;
@@ -62,6 +64,14 @@ public class UpdateReviewCommandHandler : ICommandHandler<UpdateReviewCommand, R
 
         _reviewRepository.Update(review);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Editing un-approves a review; if it was approved, the product's
+        // persisted rating aggregates must be refreshed.
+        if (wasApproved)
+        {
+            await _reviewRepository.RecalculateProductRatingAsync(review.ProductId, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
 
         var dto = new ReviewDto(
             review.Id,

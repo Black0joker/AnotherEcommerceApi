@@ -61,5 +61,8 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         builder.HasIndex(p => p.CreatedAt)
             .HasDatabaseName("IX_Products_CreatedAt");
+
+        builder.HasIndex(p => p.AverageRating)
+            .HasDatabaseName("IX_Products_AverageRating");
     }
 }

@@ -13,6 +13,13 @@ public class Product : AuditableEntity
     public bool IsActive { get; set; } = true;
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
+    // Denormalized approved-review aggregates, maintained via
+    // IReviewRepository.RecalculateProductRatingAsync whenever the approved
+    // set changes. Lets product listings filter/sort by rating without
+    // joining the Reviews table.
+    public double AverageRating { get; set; }
+    public int RatingCount { get; set; }
+
     // Navigation properties
     public ICollection<ProductCategory> ProductCategories { get; set; } = new List<ProductCategory>();
     public ICollection<ProductImage> Images { get; set; } = new List<ProductImage>();

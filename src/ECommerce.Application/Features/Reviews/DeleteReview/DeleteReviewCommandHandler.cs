@@ -47,8 +47,18 @@ public class DeleteReviewCommandHandler : ICommandHandler<DeleteReviewCommand, b
                 $"Review with ID '{request.ReviewId}' was not found."));
         }
 
+        var wasApproved = review.IsApproved;
+
         _reviewRepository.Delete(review);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Removing an approved review changes the product's persisted rating
+        // aggregates; recompute them after the delete is persisted.
+        if (wasApproved)
+        {
+            await _reviewRepository.RecalculateProductRatingAsync(review.ProductId, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
 
         return Result.Success(true);
     }
